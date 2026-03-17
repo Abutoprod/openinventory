@@ -20,6 +20,7 @@ class DataWedgeManager(private val context: Context) {
             putString("PROFILE_ENABLED", "true")
             putString("CONFIG_MODE", "UPDATE")
 
+            // Associa ao app
             putParcelableArray(
                 "APP_LIST",
                 arrayOf(
@@ -29,28 +30,25 @@ class DataWedgeManager(private val context: Context) {
                     }
                 )
             )
-        }
 
-        val barcodeConfig = Bundle().apply {
-            putString("PLUGIN_NAME", "BARCODE")
-            putString("RESET_CONFIG", "true")
-            putBundle("PARAM_LIST", Bundle())
-        }
+            // Configuração do scanner
+            putBundle("PLUGIN_CONFIG", Bundle().apply {
+                putString("PLUGIN_NAME", "BARCODE")
+                putString("RESET_CONFIG", "true")
+                putBundle("PARAM_LIST", Bundle())
+            })
 
-        val intentConfig = Bundle().apply {
-            putString("PLUGIN_NAME", "INTENT")
-            putString("RESET_CONFIG", "true")
-            putBundle("PARAM_LIST", Bundle().apply {
-                putString("intent_output_enabled", "true")
-                putString("intent_action", ScannerConstants.SCAN_ACTION)
-                putString("intent_delivery", "2")
+            // Configuração do Intent Output (ESSENCIAL)
+            putBundle("PLUGIN_CONFIG", Bundle().apply {
+                putString("PLUGIN_NAME", "INTENT")
+                putString("RESET_CONFIG", "true")
+                putBundle("PARAM_LIST", Bundle().apply {
+                    putString("intent_output_enabled", "true")
+                    putString("intent_action", "com.openinventory.app.SCAN")
+                    putString("intent_delivery", "2") // 2 = Broadcast
+                })
             })
         }
-
-        profileConfig.putParcelableArray(
-            "PLUGIN_CONFIG",
-            arrayOf(barcodeConfig, intentConfig)
-        )
 
         val intent = Intent("com.symbol.datawedge.api.SET_CONFIG")
         intent.putExtra("com.symbol.datawedge.api.SET_CONFIG", profileConfig)
@@ -58,7 +56,8 @@ class DataWedgeManager(private val context: Context) {
     }
 
     private fun sendCommand(command: String, parameter: String) {
-        val intent = Intent("com.symbol.datawedge.api.ACTION")
+        val intent = Intent()
+        intent.action = "com.symbol.datawedge.api.ACTION"
         intent.putExtra(command, parameter)
         context.sendBroadcast(intent)
     }
