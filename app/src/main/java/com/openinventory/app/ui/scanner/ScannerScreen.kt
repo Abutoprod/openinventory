@@ -5,27 +5,22 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.MaterialTheme
 import com.openinventory.app.core.scanner.DataWedgeReceiver
-
+import com.openinventory.app.core.scanner.ScannerManager
 @Composable
-fun ScannerScreen(viewModel: ScannerViewModel) {
+fun ScannerScreen(viewModel: ScannerViewModel, scannerManager: ScannerManager) {
 
-    val context = LocalContext.current
-
+    // Liga o scanner quando entra na tela e desliga ao sair
     DisposableEffect(Unit) {
-
-        val receiver = DataWedgeReceiver {
-            viewModel.onScan(it)
-        }
-
-        val filter = IntentFilter("com.openinventory.app.scan")
-        filter.addCategory("android.intent.category.DEFAULT")
-        context.registerReceiver(receiver, filter,Context.RECEIVER_EXPORTED)
-
+        scannerManager.start()
         onDispose {
-            context.unregisterReceiver(receiver)
+            scannerManager.stop()
         }
     }
-
-    Text(text = "Scan: ${viewModel.scanResult.value}")
+    Column {
+        Text(text = "Aponte para o código de barras")
+        Text(text = "Scan: ${viewModel.scanResult.value}", style = MaterialTheme.typography.headlineMedium)
+    }
 }

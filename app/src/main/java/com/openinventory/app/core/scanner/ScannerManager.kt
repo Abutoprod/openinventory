@@ -5,12 +5,13 @@ import android.content.Context
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import android.util.Log
+
 class ScannerManager(private val context: Context) {
-    private val _scanFlow = MutableSharedFlow<String>()
+    private val _scanFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val scanFlow = _scanFlow.asSharedFlow()
 
-    private val dataWedgeReceiver = DataWedgeReceiver {
-        _scanFlow.tryEmit(it)
+    private val dataWedgeReceiver = DataWedgeReceiver { barcode ->
+        _scanFlow.tryEmit(barcode)
     }
 
     fun start() {
@@ -24,6 +25,10 @@ class ScannerManager(private val context: Context) {
     }
 
     fun stop() {
-        context.unregisterReceiver(dataWedgeReceiver)
+        try {
+            context.unregisterReceiver(dataWedgeReceiver)
+        } catch (e: Exception){
+            Log.d("Erro","errei")
+        }
     }
 }
