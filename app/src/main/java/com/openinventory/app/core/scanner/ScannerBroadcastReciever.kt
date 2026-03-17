@@ -11,21 +11,16 @@ class ScannerBroadcastReceiver(
 
     override fun onReceive(context: Context?, intent: Intent?) {
 
-        // 🔥 DEBUG COMPLETO DO INTENT
+        Log.d("DW_DEBUG", "ACTION: ${intent?.action}")
+
         intent?.extras?.keySet()?.forEach {
             Log.d("DW_DEBUG", "Key: $it -> ${intent.extras?.get(it)}")
         }
 
-        // 🔎 tenta pegar o barcode de várias formas
-        val barcode =
-            intent?.getStringExtra("data")
-                ?: intent?.getStringExtra("com.symbol.datawedge.data_string")
-                ?: intent?.getStringExtra("barcode")
+        val data = intent?.getStringExtra(ScannerConstants.DATA_KEY)
 
-        Log.d("SCANNER_TEST", "Recebido: $barcode")
-
-        barcode?.let {
-            onScan(ScanResult(it))
+        if (!data.isNullOrEmpty()) {
+            onScan(ScanResult(data))
         }
     }
 }

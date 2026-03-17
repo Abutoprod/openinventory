@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.openinventory.app.core.scanner.DataWedgeManager
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -17,6 +18,8 @@ import com.openinventory.app.ui.theme.OpeninventoryTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val dataWedgeManager = DataWedgeManager(this)
+        dataWedgeManager.createProfile()
         enableEdgeToEdge()
         setContent {
             OpeninventoryTheme {
