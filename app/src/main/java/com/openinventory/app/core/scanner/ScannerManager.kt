@@ -2,9 +2,11 @@ package com.openinventory.app.core.scanner
 
 import android.content.IntentFilter
 import android.content.Context
+import android.os.Build
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import android.util.Log
+import androidx.annotation.RequiresApi
 
 class ScannerManager(private val context: Context) {
     private val _scanFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
@@ -14,6 +16,7 @@ class ScannerManager(private val context: Context) {
         _scanFlow.tryEmit(barcode)
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     fun start() {
         val filter = IntentFilter().apply {
             addAction("com.openinventory.app.scan")
