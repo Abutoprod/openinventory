@@ -18,8 +18,8 @@ fun ScannerScreen(viewModel: ScannerViewModel) {
             viewModel.onScan(it)
         }
 
-        val filter = IntentFilter("com.stankovic.zebrascanner.scan")
-
+        val filter = IntentFilter("com.openinventory.app.scan")
+        filter.addCategory("android.intent.category.DEFAULT")
         context.registerReceiver(receiver, filter,Context.RECEIVER_EXPORTED)
 
         onDispose {

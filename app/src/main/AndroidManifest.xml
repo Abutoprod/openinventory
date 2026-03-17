@@ -28,7 +28,7 @@
             android:exported="true"
             android:permission="com.stankovic.zebrascanner.SCAN_PERMISSION">
             <intent-filter>
-                <action android:name="com.stankovic.zebrascanner.scan" /> <!-- This has to be same as in ScanningConfig.kt -->
+                <action android:name="com.openinventory.app.scan" /> <!-- This has to be same as in ScanningConfig.kt -->
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>

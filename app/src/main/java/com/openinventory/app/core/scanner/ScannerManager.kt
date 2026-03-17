@@ -14,14 +14,13 @@ class ScannerManager(private val context: Context) {
     }
 
     fun start() {
-        Log.d("SCANNER", "START chamado")
-        val filter =
-            IntentFilter("com.stankovic.zebrascanner.scan") // aqui é configurado no datawdge
-        context.registerReceiver(
-            dataWedgeReceiver,
-            filter,
-            Context.RECEIVER_EXPORTED
-        )
+        val filter = IntentFilter().apply {
+            addAction("com.openinventory.app.scan")
+            addCategory("android.intent.category.DEFAULT") // Categoria explícita
+        }
+
+                context.registerReceiver(dataWedgeReceiver, filter, Context.RECEIVER_EXPORTED)
+        Log.d("SCANNER", "Receiver registrado para a action: com.openinventory.app.scan")
     }
 
     fun stop() {
