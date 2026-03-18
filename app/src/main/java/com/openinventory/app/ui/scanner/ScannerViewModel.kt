@@ -5,8 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.openinventory.app.core.scanner.ScannerManager
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.mutableStateListOf
+import com.openinventory.app.core.scanner.ScannedProduct
 
 class ScannerViewModel(private val scannerManager: ScannerManager) : ViewModel() {
+
+    var scannedProducts = mutableStateListOf<ScannedProduct>()
+        private set
 
     var scanResult = mutableStateOf("")
         private set
@@ -14,8 +19,9 @@ class ScannerViewModel(private val scannerManager: ScannerManager) : ViewModel()
     init {
         viewModelScope.launch {
             scannerManager.scanFlow.collect { barcode ->
-                scanResult.value = barcode
-                onScan(barcode) // Sua lógica de negócio aqui
+                scannedProducts.add(0, ScannedProduct(barcode,"Agora"))
+                /*scanResult.value = barcode
+                onScan(barcode) // Sua lógica de negócio aqui*/
             }
         }
     }
