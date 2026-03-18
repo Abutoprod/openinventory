@@ -13,6 +13,7 @@ class ScannerViewModel(private val scannerManager: ScannerManager) : ViewModel()
     var scannedProducts = mutableStateListOf<ScannedProduct>()
         private set
 
+    val totalItems: Int get() = scannedProducts.size
     var scanResult = mutableStateOf("")
         private set
 
@@ -25,6 +26,10 @@ class ScannerViewModel(private val scannerManager: ScannerManager) : ViewModel()
             }
         }
     }
+    fun deleteProduct(product: ScannedProduct) {
+        scannedProducts.remove(product)
+    }
+
     fun onScan(value: String) {
         scanResult.value = value
     }
