@@ -24,8 +24,6 @@ class MainActivity : ComponentActivity() {
             val viewModel: ScannerViewModel = viewModel(
                 factory = ScannerViewModelFactory(scannerManager)
             )
-
-            // Passamos o manager para a Screen para ela controlar o Start/Stop
             ScannerScreen(viewModel, scannerManager)
         }
     }

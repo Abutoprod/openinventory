@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import android.util.Log
 import androidx.annotation.RequiresApi
-
+import com.openinventory.app.BuildConfig
 class ScannerManager(private val context: Context) {
     private val _scanFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val scanFlow = _scanFlow.asSharedFlow()
@@ -18,8 +18,9 @@ class ScannerManager(private val context: Context) {
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun start() {
+
         val filter = IntentFilter().apply {
-            addAction("com.openinventory.app.scan")
+            addAction(BuildConfig.SCAN_ACTION)
             addCategory("android.intent.category.DEFAULT") // Categoria explícita
         }
 

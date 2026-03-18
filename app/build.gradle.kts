@@ -16,9 +16,11 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-
+        buildConfigField("String", "SCAN_ACTION", "\"com.openinventory.app.scan\"")
+        manifestPlaceholders["scanAction"] = "com.openinventory.app.scan"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+
 
     buildTypes {
         release {
@@ -38,6 +40,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
