@@ -45,6 +45,15 @@ android {
 }
 
 dependencies {
+    val cameraxVersion = "1.3.1"
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
+    implementation("com.google.accompanist:accompanist-permissions:0.34.0") // pedir permissao da camera
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.0")
     implementation("androidx.navigation:navigation-compose:2.7.7")

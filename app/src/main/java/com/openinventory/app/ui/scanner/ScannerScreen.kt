@@ -1,180 +1,194 @@
 package com.openinventory.app.ui.scanner
 
-import android.content.IntentFilter
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.material.icons.filled.List
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.MaterialTheme
-import com.openinventory.app.core.scanner.DataWedgeReceiver
-import com.openinventory.app.core.scanner.ScannerManager
-import com.openinventory.app.R
-import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.Alignment
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.CardDefaults
-import androidx.compose.foundation.layout.Box
-import  androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.material3.Card
-import com.openinventory.app.core.scanner.ScannedProduct
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.foundation.background
-import androidx.compose.ui.res.painterResource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.lazy.items // IMPORTANTE: Certifique-se de que é este import
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.openinventory.app.R
+import com.openinventory.app.core.scanner.ScannerManager
+import com.openinventory.app.core.scanner.ScannedProduct
+import com.google.accompanist.permissions.isGranted
+import androidx.compose.ui.platform.LocalContext
+@OptIn(com.google.accompanist.permissions.ExperimentalPermissionsApi::class)
 @Composable
 fun ScannerScreen(viewModel: ScannerViewModel, scannerManager: ScannerManager) {
+    // 1. Definição da Fonte Personalizada
     val ImpactFontFamily = FontFamily(
         Font(R.font.nautiluspompilius, FontWeight.Normal)
     )
-    // Ciclo de vida: Liga o scanner ao entrar na tela e desliga ao sair
+    // 2. Estado para controlar a abertura da Câmera
+    var isCameraOpen by remember { mutableStateOf(false) }
+// Gerenciador de Permissão
+    val cameraPermissionState = com.google.accompanist.permissions.rememberPermissionState(
+        android.Manifest.permission.CAMERA
+    )
+    // 3. Ciclo de vida do Scanner de Hardware (Zebra)
     DisposableEffect(Unit) {
         scannerManager.start()
-        onDispose {
-            scannerManager.stop()
-        }
+        onDispose { scannerManager.stop() }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF0F2F5)) // Fundo cinza claro
-    ) {
-        // --- 1. CABEÇALHO ---
-        Row(
+    // Usamos um Box para permitir que componentes fiquem uns sobre os outros
+    Box(modifier = Modifier.fillMaxSize()) {
+
+        // --- CONTEÚDO PRINCIPAL (TELA) ---
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF6A1B9A)),
-                //.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .background(Color(0xFFF0F2F5))
         ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ico),
-                contentDescription = "Logo OpenInventory",
-                modifier = Modifier.size(50.dp),
-                tint = Color.White
-            )
-            //Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "Open Inventory",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontFamily = ImpactFontFamily,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
-        }
-
-        // --- CONTEÚDO ROLÁVEL ---
-        Column(modifier = Modifier.padding(16.dp)) {
-
-
-            // --- BLOCO DE RESUMO LADO A LADO ---
+            // Cabeçalho
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp) // Espaço entre os dois cards
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF6A1B9A))
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // CARD 1: Total de Leituras
-                Card(
-                    modifier = Modifier.weight(1f), // Ocupa metade da largura
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5)),
-                    elevation = CardDefaults.cardElevation(4.dp)
+                Icon(
+                    painter = painterResource(id = R.drawable.ico),
+                    contentDescription = "Logo",
+                    modifier = Modifier.size(50.dp),
+                    tint = Color.White
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "Open Inventory",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontFamily = ImpactFontFamily,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Cards de Resumo Lado a Lado
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Total Itens",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.Gray
-                        )
-                        Text(
-                            text = "${viewModel.scannedProducts.size}",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF6A1B9A)
-                        )
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5)),
+                        elevation = CardDefaults.cardElevation(4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Total Itens", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+                            Text("${viewModel.scannedProducts.size}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Color(0xFF6A1B9A))
+                        }
+                    }
+
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            val distinctCodes = viewModel.scannedProducts.distinctBy { it.code }.size
+                            Text("SKUs Únicos", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+                            Text("$distinctCodes", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
 
-                // CARD 2: SKUs Únicos (ou outra métrica)
-                Card(
-                    modifier = Modifier.weight(1f), // Ocupa a outra metade
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(4.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        // Exemplo: contando quantos códigos diferentes foram lidos
-                        val distinctCodes = viewModel.scannedProducts.distinctBy { it.code }.size
+                Spacer(modifier = Modifier.height(16.dp))
+                InfoCard(label = "Seção", value = "1010")
+                Spacer(modifier = Modifier.height(8.dp))
+                val lastScan = viewModel.scannedProducts.firstOrNull()?.code ?: "Aguardando..."
+                InfoCard(label = "Último Código lido", value = lastScan, isHighlight = true)
 
-                        Text(
-                            text = "SKUs Únicos",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.Gray
-                        )
-                        Text(
-                            text = "$distinctCodes",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black
-                        )
+                Spacer(modifier = Modifier.height(24.dp))
+                Text("Produtos Lidos:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 80.dp) // Espaço para o botão não cobrir o último item
+                ) {
+                    items(items = viewModel.scannedProducts) { product ->
+                        ProductItem(product = product, onDeleteConfirm = { viewModel.deleteProduct(product) })
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
+        }
 
-            // --- 3. INFO CARDS (SEÇÃO E ÚLTIMO LIDO) ---
-            InfoCard(label = "Seção", value = "1010")
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            val lastScan = viewModel.scannedProducts.firstOrNull()?.code ?: "Aguardando..."
-            InfoCard(label = "Último Código lido", value = lastScan, isHighlight = true)
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // --- 4. TÍTULO DA LISTA ---
-            Text(
-                text = "Produtos Lidos:",
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.DarkGray,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // --- 5. LISTA DE PRODUTOS ---
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 16.dp)
-            ) {
-                items(items = viewModel.scannedProducts) { product ->
-                    ProductItem(
-                        product = product,
-                        onDeleteConfirm = {
-                            viewModel.deleteProduct(product)
-                        }
-                    )
+        // --- BOTÃO FLUTUANTE (FAB) ---
+        FloatingActionButton(
+            onClick = {
+                // Se já tem permissão, abre. Se não, pede.
+                if (cameraPermissionState.status.isGranted) {
+                    isCameraOpen = true
+                } else {
+                    cameraPermissionState.launchPermissionRequest()
                 }
+            },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+            containerColor = Color(0xFF004AAD)
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.diaphragm), // Certifique-se que este nome existe
+                contentDescription = "Câmera",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
+        // --- TELA DE OVERLAY DA CÂMERA ---
+        if (isCameraOpen) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                val context = LocalContext.current
+                // 1. A Câmera (Fica no fundo)
+                CameraPreview(onBarcodeScanned = { code ->
+                    viewModel.onProductScanned(code)
+                    // A VIBRAÇÃO FICA AQUI
+                    val vibrator = context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        vibrator.vibrate(android.os.VibrationEffect.createOneShot(100, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                    } else {
+                        vibrator.vibrate(100)
+                    }
+                    isCameraOpen = false // Fecha ao ler
+                })
+                // Aqui você chamará o Preview da câmera depois. Por enquanto, a animação:
+                CameraScannerOverlay()
+
+                // Botão de fechar a câmera
+                IconButton(
+                    onClick = { isCameraOpen = false },
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .align(Alignment.TopStart)
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Fechar", tint = Color.White, modifier = Modifier.size(32.dp))
+                }
+
+                Text(
+                    text = "Posicione o código no centro",
+                    color = Color.White,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 100.dp)
+                )
             }
         }
     }
@@ -189,42 +203,30 @@ fun InfoCard(label: String, value: String, isHighlight: Boolean = false) {
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyLarge,
+            Text(value, style = MaterialTheme.typography.bodyLarge,
                 fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Normal,
-                color = if (isHighlight) Color(0xFF6A1B9A) else Color.Black
-            )
+                color = if (isHighlight) Color(0xFF6A1B9A) else Color.Black)
         }
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ProductItem(
-    product: ScannedProduct,
-    onDeleteConfirm: () -> Unit
-) {
+fun ProductItem(product: ScannedProduct, onDeleteConfirm: () -> Unit) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // Diálogo de exclusão
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Excluir Registro") },
-            text = { Text("Deseja excluir o código ${product.code} lido às ${product.timestamp}?") },
+            text = { Text("Deseja excluir o código ${product.code}?") },
             confirmButton = {
-                TextButton(onClick = {
-                    onDeleteConfirm()
-                    showDeleteDialog = false
-                }) {
+                TextButton(onClick = { onDeleteConfirm(); showDeleteDialog = false }) {
                     Text("OK", color = Color.Red)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancelar")
-                }
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancelar") }
             }
         )
     }
@@ -233,30 +235,48 @@ fun ProductItem(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
-                onClick = { /* Ação de clique simples se desejar */ },
+                onClick = { },
                 onLongClick = { showDeleteDialog = true }
             ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (showDeleteDialog) Color(0xFFFFEBEE) else Color.White
-        ),
+        colors = CardDefaults.cardColors(containerColor = if (showDeleteDialog) Color(0xFFFFEBEE) else Color.White),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.ShoppingCart,
-                contentDescription = null,
-                tint = if (showDeleteDialog) Color.Red else Color.Gray
-            )
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = Color.Gray)
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(text = product.code, fontWeight = FontWeight.Medium)
-                Text(
-                    text = "Lido em: ${product.timestamp}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.Gray
+                Text(text = "Lido em: ${product.timestamp}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+            }
+        }
+    }
+}
+
+@Composable
+fun CameraScannerOverlay() {
+    val infiniteTransition = rememberInfiniteTransition(label = "scanner")
+    val linePosition by infiniteTransition.animateFloat(
+        initialValue = 0.1f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ), label = "line"
+    )
+
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .size(260.dp)
+                .border(2.dp, Color.White.copy(alpha = 0.5f), MaterialTheme.shapes.medium)
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val y = size.height * linePosition
+                drawLine(
+                    color = Color.Red,
+                    start = androidx.compose.ui.geometry.Offset(x = 20f, y = y),
+                    end = androidx.compose.ui.geometry.Offset(x = size.width - 20f, y = y),
+                    strokeWidth = 6f
                 )
             }
         }
