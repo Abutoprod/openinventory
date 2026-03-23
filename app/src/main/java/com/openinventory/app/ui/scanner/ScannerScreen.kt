@@ -62,8 +62,8 @@ fun ScannerScreen(viewModel: ScannerViewModel, scannerManager: ScannerManager) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF6A1B9A))
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .background(Color(0xFF6A1B9A)),
+                    //.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
