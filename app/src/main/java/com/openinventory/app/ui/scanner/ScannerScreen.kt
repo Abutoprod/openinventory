@@ -30,29 +30,33 @@ import com.openinventory.app.core.scanner.ScannerManager
 import com.openinventory.app.core.scanner.ScannedProduct
 import com.google.accompanist.permissions.isGranted
 import androidx.compose.ui.platform.LocalContext
+import com.openinventory.app.data.repository.ProductRepository
+
+// Importe para CameraPreview (certifique-se que o pacote está correto conforme seu projeto)
+// import com.openinventory.app.ui.scanner.CameraPreview
+
 @OptIn(com.google.accompanist.permissions.ExperimentalPermissionsApi::class)
 @Composable
-fun ScannerScreen(viewModel: ScannerViewModel, scannerManager: ScannerManager) {
-    // 1. Definição da Fonte Personalizada
+fun ScannerScreen(viewModel: ScannerViewModel,
+                  scannerManager: ScannerManager
+                  )
+{
     val ImpactFontFamily = FontFamily(
         Font(R.font.nautiluspompilius, FontWeight.Normal)
     )
-    // 2. Estado para controlar a abertura da Câmera
+
     var isCameraOpen by remember { mutableStateOf(false) }
-// Gerenciador de Permissão
+
     val cameraPermissionState = com.google.accompanist.permissions.rememberPermissionState(
         android.Manifest.permission.CAMERA
     )
-    // 3. Ciclo de vida do Scanner de Hardware (Zebra)
+
     DisposableEffect(Unit) {
         scannerManager.start()
         onDispose { scannerManager.stop() }
     }
 
-    // Usamos um Box para permitir que componentes fiquem uns sobre os outros
     Box(modifier = Modifier.fillMaxSize()) {
-
-        // --- CONTEÚDO PRINCIPAL (TELA) ---
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -63,7 +67,6 @@ fun ScannerScreen(viewModel: ScannerViewModel, scannerManager: ScannerManager) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF6A1B9A)),
-                    //.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -83,7 +86,6 @@ fun ScannerScreen(viewModel: ScannerViewModel, scannerManager: ScannerManager) {
             }
 
             Column(modifier = Modifier.padding(16.dp)) {
-                // Cards de Resumo Lado a Lado
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -125,7 +127,7 @@ fun ScannerScreen(viewModel: ScannerViewModel, scannerManager: ScannerManager) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp) // Espaço para o botão não cobrir o último item
+                    contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
                     items(items = viewModel.scannedProducts) { product ->
                         ProductItem(product = product, onDeleteConfirm = { viewModel.deleteProduct(product) })
@@ -134,10 +136,8 @@ fun ScannerScreen(viewModel: ScannerViewModel, scannerManager: ScannerManager) {
             }
         }
 
-        // --- BOTÃO FLUTUANTE (FAB) ---
         FloatingActionButton(
             onClick = {
-                // Se já tem permissão, abre. Se não, pede.
                 if (cameraPermissionState.status.isGranted) {
                     isCameraOpen = true
                 } else {
@@ -148,33 +148,32 @@ fun ScannerScreen(viewModel: ScannerViewModel, scannerManager: ScannerManager) {
             containerColor = Color(0xFF004AAD)
         ) {
             Icon(
-                painter = painterResource(id = R.drawable.diaphragm), // Certifique-se que este nome existe
+                painter = painterResource(id = R.drawable.diaphragm),
                 contentDescription = "Câmera",
                 tint = Color.White,
                 modifier = Modifier.size(24.dp)
             )
         }
 
-        // --- TELA DE OVERLAY DA CÂMERA ---
         if (isCameraOpen) {
             Box(modifier = Modifier.fillMaxSize()) {
                 val context = LocalContext.current
-                // 1. A Câmera (Fica no fundo)
+
+                // AJUSTE AQUI: Mudamos de onProductScanned para onScan
                 CameraPreview(onBarcodeScanned = { code ->
-                    viewModel.onProductScanned(code)
-                    // A VIBRAÇÃO FICA AQUI
+                    viewModel.buscarEProcessar(code) // <--- CORREÇÃO AQUI
+
                     val vibrator = context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                         vibrator.vibrate(android.os.VibrationEffect.createOneShot(100, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
                     } else {
                         vibrator.vibrate(100)
                     }
-                    isCameraOpen = false // Fecha ao ler
+                    isCameraOpen = false
                 })
-                // Aqui você chamará o Preview da câmera depois. Por enquanto, a animação:
+
                 CameraScannerOverlay()
 
-                // Botão de fechar a câmera
                 IconButton(
                     onClick = { isCameraOpen = false },
                     modifier = Modifier
@@ -219,7 +218,7 @@ fun ProductItem(product: ScannedProduct, onDeleteConfirm: () -> Unit) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Excluir Registro") },
-            text = { Text("Deseja excluir o código ${product.code}?") },
+            text = { Text("Deseja excluir o item: ${product.name}?") }, // Usando o nome para ficar mais claro
             confirmButton = {
                 TextButton(onClick = { onDeleteConfirm(); showDeleteDialog = false }) {
                     Text("OK", color = Color.Red)
@@ -238,15 +237,16 @@ fun ProductItem(product: ScannedProduct, onDeleteConfirm: () -> Unit) {
                 onClick = { },
                 onLongClick = { showDeleteDialog = true }
             ),
-        colors = CardDefaults.cardColors(containerColor = if (showDeleteDialog) Color(0xFFFFEBEE) else Color.White),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = Color.Gray)
+            Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = Color(0xFF6A1B9A))
             Spacer(modifier = Modifier.width(16.dp))
             Column {
-                Text(text = product.code, fontWeight = FontWeight.Medium)
-                Text(text = "Lido em: ${product.timestamp}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                // EXIBE O NOME DO PRODUTO (que agora vem do banco)
+                Text(text = product.name, fontWeight = FontWeight.Bold)
+                Text(text = "SKU: ${product.code} • ${product.timestamp}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
             }
         }
     }

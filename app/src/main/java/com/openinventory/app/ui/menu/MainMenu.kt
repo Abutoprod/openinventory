@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import com.openinventory.app.ui.import.ImportViewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -20,100 +21,133 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openinventory.app.R
-
+import androidx.compose.ui.res.colorResource
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import com.openinventory.app.ui.import.ImportSheet
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainMenu(
     onNavigateToScan: () -> Unit,
-    onNavigateToImport: () -> Unit,
+    importViewModel: ImportViewModel,
     onNavigateToHistory: () -> Unit
 ) {
+    var showImportSheet by remember { mutableStateOf(false) }
 
+    // 1. Esse estado vai ser controlado dentro do seu ImportViewModel futuramente
+    // ou por um callback que vamos passar para o ImportSheet
+    var isLoading by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
     val ImpactFontFamily = FontFamily(
         Font(R.font.nautiluspompilius, FontWeight.Normal)
     )
-    Scaffold(
-        topBar = {
-            Row(
+
+    // O Box permite que o Loading fique "por cima" do Scaffold
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(colorResource(R.color.basic_purple)),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ico),
+                        contentDescription = "Logo",
+                        modifier = Modifier.size(50.dp),
+                        tint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Open Inventory",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontFamily = ImpactFontFamily,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        ) { padding ->
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF6A1B9A)),
-                //.padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .padding(padding)
+                    .background(Color(0xFFF0F2F5))
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ico),
-                    contentDescription = "Logo",
-                    modifier = Modifier.size(50.dp),
-                    tint = Color.White
+                // Botão Principal: Nova Coleta
+                MenuActionCard(
+                    title = "Nova Coleta",
+                    description = "Iniciar contagem de inventário",
+                    icon = Icons.Default.CameraAlt,
+                    containerColor = colorResource(R.color.basic_lilas),
+                    iconColor =  colorResource(R.color.dark_purple),
+                    onClick = onNavigateToScan
                 )
-                Spacer(modifier = Modifier.width(12.dp))
+
+                // Linha com Importar e Histórico
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    SecondaryMenuCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Importar",
+                        subtitle = "Catálogo Excel",
+                        icon = Icons.Default.ShoppingCart,
+                        onClick  = { showImportSheet = true }
+                    )
+                    SecondaryMenuCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Histórico",
+                        subtitle = "Ver Seções",
+                        icon = Icons.Default.List,
+                        onClick = onNavigateToHistory
+                    )
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
                 Text(
-                    text = "Open Inventory",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontFamily = ImpactFontFamily,
-                    fontWeight = FontWeight.Bold
+                    text = "v1.0.0 - DAUX Sistemas",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.LightGray
                 )
             }
         }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .background(Color(0xFFF0F2F5))
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Seção de Boas-vindas ou Status
-            Text(
-                text = "O que deseja fazer hoje?",
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.DarkGray,
-                modifier = Modifier.align(Alignment.Start)
-            )
 
-            // Botão Principal: Iniciar Coleta
-            MenuActionCard(
-                title = "Nova Coleta",
-                description = "Iniciar contagem de inventário",
-                icon = Icons.Default.CameraAlt,
-                containerColor = Color(0xFFE1F5FE),
-                iconColor = Color(0xFF0288D1),
-                onClick = onNavigateToScan
-            )
-
-            // Linha com opções secundárias
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+        // 2. CAMADA DE LOADING (Flutua sobre o Scaffold)
+        if (isLoading) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = Color.Black.copy(alpha = 0.5f) // Fundo semi-transparente
             ) {
-                SecondaryMenuCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Importar",
-                    subtitle = "Catálogo Excel",
-                    icon = Icons.Default.ShoppingCart,
-                    onClick = onNavigateToImport
-                )
-                SecondaryMenuCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Histórico",
-                    subtitle = "Ver Seções",
-                    icon = Icons.Default.List,
-                    onClick = onNavigateToHistory
-                )
+                Column(
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator(color = colorResource(R.color.basic_purple))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Processando CSV...", color = Color.White)
+                }
             }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Rodapé com versão ou info da empresa
-            Text(
-                text = "v1.0.0 - DAUX Sistemas", // Referência à sua empresa atual
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.LightGray
-            )
         }
+    } // FIM DO BOX
+
+    // 3. BOTTOM SHEET
+    if (showImportSheet) {
+        ImportSheet(
+            viewModel = importViewModel,
+            onDismiss = { showImportSheet = false }
+            // DICA: Se você adicionar um callback 'onLoading' no seu ImportSheet,
+            // você consegue mudar o valor de 'isLoading' aqui!
+        )
     }
 }

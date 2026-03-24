@@ -4,17 +4,23 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.openinventory.app.core.scanner.ScannerManager
+import com.openinventory.app.data.database.AppDatabase
+import com.openinventory.app.data.datasource.local.FileDataSource
+import com.openinventory.app.data.datasource.local.LocalProductDataSource
+import com.openinventory.app.data.repository.ProductRepository
+import com.openinventory.app.ui.import.ImportViewModel
+import com.openinventory.app.ui.import.ImportViewModelFactory
+import com.openinventory.app.ui.menu.MainMenu
 import com.openinventory.app.ui.scanner.ScannerScreen
 import com.openinventory.app.ui.scanner.ScannerViewModel
-import com.openinventory.app.ui.scanner.ScannerViewModelFactory // Vamos precisar disso
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.compose.NavHost
-import com.openinventory.app.ui.menu.MainMenu
-import androidx.navigation.compose.composable
+import com.openinventory.app.ui.scanner.ScannerViewModelFactory
+
 class MainActivity : ComponentActivity() {
 
-    // Criamos o manager aqui para durar enquanto o app estiver aberto
     private lateinit var scannerManager: ScannerManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,36 +29,47 @@ class MainActivity : ComponentActivity() {
         scannerManager = ScannerManager(applicationContext)
 
         setContent {
-            // 1. Criamos o NavController que controla a pilha de telas
             val navController = rememberNavController()
 
-            // Usamos uma Factory para passar o scannerManager para dentro da ViewModel
-            val viewModel: ScannerViewModel = viewModel(
-                factory = ScannerViewModelFactory(scannerManager)
-            )
-            // 2. Definimos as rotas
+            // 1. PRIMEIRO inicializamos o banco e o repositório
+            val database = AppDatabase.getDatabase(this) // Ou como você inicializa seu Room
+            val localDataSource = LocalProductDataSource(database.productDao())
+            val fileDataSource = FileDataSource(applicationContext)
+            val repository = ProductRepository(localDataSource, fileDataSource, database)
+
+
+            // 2. DEPOIS criamos a factory usando o repository que já existe acima
+            val scannerFactory = ScannerViewModelFactory(scannerManager, repository)
+
             NavHost(navController = navController, startDestination = "main_menu") {
-                // Rota do Menu Principal
+
                 composable("main_menu") {
+                    // Aqui usamos a factory de importação
+                    val importViewModel: ImportViewModel = viewModel(
+                        factory = ImportViewModelFactory(repository)
+                    )
+
                     MainMenu(
                         onNavigateToScan = { navController.navigate("scanner") },
-                        onNavigateToImport = { navController.navigate("import") },
-                        onNavigateToHistory = { navController.navigate("history")}
+                        onNavigateToHistory = { navController.navigate("history") },
+                        importViewModel = importViewModel
                     )
                 }
-                // Rota do Scanner que você já criou
+
                 composable("scanner") {
-                    // Passamos o scannerManager e a viewModel para a sua ScannerScreen
-                    ScannerScreen(viewModel, scannerManager)
+                    // 3. AGORA usamos a scannerFactory que criamos ali no passo 2
+                    val scannerViewModel: ScannerViewModel = viewModel(
+                        factory = scannerFactory
+                    )
+
+                    ScannerScreen(
+                        viewModel = scannerViewModel,
+                        scannerManager = scannerManager
+                    )
                 }
-                // Rota do import ond evejo os produtos
-                composable("import") {
-                    // Passamos o scannerManager e a viewModel para a sua ScannerScreen
-                    //ImportScreen(onBack = { navController.popBackStack() })
-                }
+
                 composable("history") {
-                    // Tela de Histórico e Crítica
-                    // HistoryScreen(onBack = { navController.popBackStack() })
+                    // HistoryScreen(...)
                 }
             }
         }
