@@ -25,10 +25,12 @@ class OrderViewModel(private val repository: OrderRepository,private val product
     val orders: StateFlow<List<OrderEntity>> = _orders.asStateFlow()
     private val _availableCustomers = MutableStateFlow<List<String>>(emptyList())
     val availableCustomers: StateFlow<List<String>> = _availableCustomers.asStateFlow()
-    private val _tempItems = MutableStateFlow<List<Pair<String, Double>>>(emptyList())
-    val tempItems: StateFlow<List<Pair<String, Double>>> = _tempItems.asStateFlow()
+    private val _tempItems = MutableStateFlow<List<Triple<String, String, Double>>>(emptyList())
+    val tempItems: StateFlow<List<Triple<String, String, Double>>> = _tempItems.asStateFlow()
     private val _confirmedItems = MutableStateFlow<List<Pair<String, Double>>>(emptyList())
     val confirmedItems = _confirmedItems.asStateFlow()
+
+
 
 
     // Fluxo de produtos do estoque vindo do Room
@@ -106,8 +108,8 @@ class OrderViewModel(private val repository: OrderRepository,private val product
                 orderRef.update("totalAmount", FieldValue.increment(price))
             }
     }
-    fun addToTempList(name: String, price: Double) {
-        _tempItems.value = _tempItems.value + (name to price)
+    fun addToTempList(code: String, name: String, price: Double) {
+        _tempItems.value = _tempItems.value + Triple(code, name, price)
     }
     fun removeFromTempList(index: Int) {
         val newList = _tempItems.value.toMutableList()
@@ -128,28 +130,26 @@ class OrderViewModel(private val repository: OrderRepository,private val product
         val orderRef = db.collection("orders").document(orderId)
         var totalToAdd = 0.0
 
-        itemsToSave.forEach { (name, price) ->
-            // 1. Cria o item dentro da comanda (para o extrato)
+        // 3. O forEach agora desmembra o Triple corretamente
+        itemsToSave.forEach { (productId, name, price) ->
             val newItemRef = orderRef.collection("items").document()
             batch.set(newItemRef, hashMapOf(
                 "name" to name,
                 "price" to price,
                 "timestamp" to FieldValue.serverTimestamp()
             ))
+
             totalToAdd += price
 
-            // 2. Baixa de estoque no Firebase
-            // IMPORTANTE: Aqui usamos o nome para achar o produto,
-            // mas o ideal é usar o 'code' (SKU) se você tiver ele no Pair.
-            val productRef = db.collection("products").document(name)
-            batch.update(productRef, "quantity", FieldValue.increment(-1))
+            // AQUI A BAIXA ACONTECE: O documento do produto DEVE ter o ID igual ao 'code'
+            val productRef = db.collection("products").document(productId)
+            batch.update(productRef, "quantity", FieldValue.increment(-1.0))
         }
 
-        // 3. Atualiza o valor total da comanda
         batch.update(orderRef, "totalAmount", FieldValue.increment(totalToAdd))
 
         batch.commit().addOnSuccessListener {
-            _tempItems.value = emptyList() // Limpa após o sucesso
+            _tempItems.value = emptyList()
         }
     }
     fun loadConfirmedItems(orderId: String) {

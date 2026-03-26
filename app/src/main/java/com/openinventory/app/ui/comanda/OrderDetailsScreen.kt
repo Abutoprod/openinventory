@@ -88,6 +88,7 @@ fun OrderDetailsScreen(
                     },
                     modifier = Modifier.clickable {
                         viewModel.addToTempList(
+                            product.code,
                             product.description,
                             product.salePrice
                         )
@@ -106,10 +107,10 @@ fun OrderDetailsScreen(
                 color = Color(0xFFE91E63)
             )
 
-            // Definimos um peso menor para o carrinho ou uma altura máxima
+            // LISTA DO CARRINHO
             LazyColumn(
                 modifier = Modifier
-                    .weight(0.6f) // <--- Ocupa menos espaço que o estoque
+                    .weight(0.6f)
                     .fillMaxWidth()
             ) {
                 itemsIndexed(tempItems) { index, item ->
@@ -118,16 +119,17 @@ fun OrderDetailsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("• ${item.first}", modifier = Modifier.weight(1f))
-                        Text("R$ ${item.second}", modifier = Modifier.padding(horizontal = 8.dp))
+                        Text("• ${item.second}", modifier = Modifier.weight(1f))
+                        Text("R$ ${item.third}", modifier = Modifier.padding(horizontal = 8.dp))
+
                         IconButton(onClick = { viewModel.removeFromTempList(index) }) {
                             Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red)
                         }
                     }
                 }
-            }
+            } // <--- AQUI FECHA O LAZYCOLUMN DO CARRINHO
 
-            // 4. BOTÃO DE CONFIRMAÇÃO (Sempre visível no rodapé quando há itens)
+            // 4. BOTÃO DE CONFIRMAÇÃO (FICA FORA DA LISTA, MAS DENTRO DO IF)
             Button(
                 onClick = {
                     viewModel.confirmOrderItems(orderId)
@@ -141,6 +143,6 @@ fun OrderDetailsScreen(
             ) {
                 Text("CONFIRMAR LANÇAMENTO", fontWeight = FontWeight.Bold)
             }
-        }
-    }
-}
+        } // <--- AQUI FECHA O IF (TEMPITEMS.ISNOTEMPTY)
+    } // <--- AQUI FECHA A COLUMN PRINCIPAL
+} // <--- AQUI FECHA A FUNÇÃO ORDERDETAILSSCREEN
