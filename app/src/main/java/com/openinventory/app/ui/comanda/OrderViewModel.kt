@@ -163,4 +163,12 @@ class OrderViewModel(private val repository: OrderRepository,private val product
             }
     }
 
+    fun finishOrder(orderId: String) {
+        db.collection("orders").document(orderId)
+            .update("status", "FINISHED") // Muda o status para sumir da lista de ativas
+            .addOnSuccessListener {
+
+            }
+    }
+
 }

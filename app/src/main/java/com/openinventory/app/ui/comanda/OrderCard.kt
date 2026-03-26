@@ -17,17 +17,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.combinedClickable
 import java.util.Locale
-
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun OrderCard(
     order: OrderEntity,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
-            .clickable { onClick() },
+            .combinedClickable(
+            onClick = onClick,
+            onLongClick = onLongClick
+        ),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Row(
