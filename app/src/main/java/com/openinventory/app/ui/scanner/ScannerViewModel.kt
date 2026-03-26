@@ -41,15 +41,18 @@ class ScannerViewModel(
         }
     }
 
-     fun buscarEProcessar(barcode: String) {
+    fun buscarEProcessar(barcode: String) {
         val currentTime = System.currentTimeMillis()
         if (barcode == lastScannedCode && (currentTime - lastScanTime) < 2500) return
 
         lastScannedCode = barcode
         lastScanTime = currentTime
 
-        viewModelScope.launch(Dispatchers.IO) {
-            val produto = repository.getProductBySku(barcode)
+        viewModelScope.launch {
+            // 1. MUDANÇA AQUI: Use 'findByBarcode' (conforme sua DAO) e especifique o tipo para não dar 'Any'
+            val produto: ProductEntity? = withContext(Dispatchers.IO) {
+                repository.findByBarcode(barcode)
+            }
 
             withContext(Dispatchers.Main) {
                 val timestampStr = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
@@ -59,16 +62,17 @@ class ScannerViewModel(
                     erroScanner.value = ""
                     produtoEncontrado.value = produto
 
-                    // Adicionando na lista (Verifique se ScannedProduct usa 'code' ou 'barcode')
+                    // 2. MUDANÇA AQUI: Na sua DAO/Entity o campo é 'description' (ou 'nome', verifique sua Entity)
+                    // Se 'produto.description' der erro, use 'produto.name' ou 'produto.nome'
                     scannedProducts.add(0, ScannedProduct(
                         code = barcode,
-                        name = produto.description, // Se der erro aqui, mude para produto.name
+                        name = produto.description,
                         timestamp = timestampStr
                     ))
                 } else {
                     tocarSomErro()
+                    produtoEncontrado.value = null
                     erroScanner.value = "Produto $barcode não cadastrado!"
-                    // Mesmo sem cadastro, adicionamos na lista para o usuário ver que bipou
                     scannedProducts.add(0, ScannedProduct(
                         code = barcode,
                         name = "Não Cadastrado",

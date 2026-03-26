@@ -26,9 +26,17 @@ class FileDataSource(private val context: Context) {
                     android.util.Log.d("IMPORT_DEBUG", "Linha $index: $line")
 
                     val tokens = line.split(",")
-                    if (tokens.size >= 4) {
-                        products.add(ProductEntity(code = tokens[0].trim(), description = tokens[1].trim(), price = tokens[2].trim().toDoubleOrNull()?:0.0, quantity = tokens[3].trim().toIntOrNull()?:0))
-                    } else {
+                    if (tokens.size >= 5) {
+                        products.add(
+                            ProductEntity(
+                                code = tokens[0].trim(),
+                                description = tokens[1].trim(),
+                                category = tokens[2].trim().uppercase(), // A categoria vem aqui dentro!
+                                purchasePrice = tokens[3].trim().toDoubleOrNull() ?: 0.0,
+                                salePrice = tokens[4].trim().toDoubleOrNull() ?: 0.0,
+                                quantity = tokens[5].trim().toIntOrNull() ?: 0
+                            )
+                        )                    } else {
                         android.util.Log.w("IMPORT_DEBUG", "Linha $index inválida (poucas colunas): $line")
                     }
                 }

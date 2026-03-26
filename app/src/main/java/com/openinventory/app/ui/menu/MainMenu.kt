@@ -1,74 +1,64 @@
 package com.openinventory.app.ui.menu
 
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import com.openinventory.app.ui.import.ImportViewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openinventory.app.R
-import androidx.compose.ui.res.colorResource
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import com.openinventory.app.ui.import.ImportSheet
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
+import com.openinventory.app.ui.import.ImportViewModel
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainMenu(
     onNavigateToScan: () -> Unit,
+    onNavigateToStock: () -> Unit,
+    onNavigateToSales: () -> Unit, // Agora mapeado para 'comandas'
+    onNavigateToKits: () -> Unit,  // Agora mapeado para 'pdv_rapido'
     importViewModel: ImportViewModel,
     onNavigateToHistory: () -> Unit
 ) {
     var showImportSheet by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) } // Pode ser conectado ao ViewModel depois
 
-    // 1. Esse estado vai ser controlado dentro do seu ImportViewModel futuramente
-    // ou por um callback que vamos passar para o ImportSheet
-    var isLoading by remember { mutableStateOf(false) }
+    val ImpactFontFamily = FontFamily.Default
 
-    val context = LocalContext.current
-    val ImpactFontFamily = FontFamily(
-        Font(R.font.nautiluspompilius, FontWeight.Normal)
-    )
-
-    // O Box permite que o Loading fique "por cima" do Scaffold
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(colorResource(R.color.basic_purple)),
+                        .background(colorResource(R.color.basic_purple))
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ico),
                         contentDescription = "Logo",
-                        modifier = Modifier.size(50.dp),
+                        modifier = Modifier.size(45.dp),
                         tint = Color.White
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "Open Inventory",
+                        text = "Open Inventory - TCG",
                         color = Color.White,
-                        fontSize = 18.sp,
+                        fontSize = 20.sp,
                         fontFamily = ImpactFontFamily,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.ExtraBold
                     )
                 }
             }
@@ -77,77 +67,113 @@ fun MainMenu(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .background(Color(0xFFF0F2F5))
+                    .background(Color(0xFFF8F9FA)) // Fundo mais clean
                     .padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Botão Principal: Nova Coleta
+
+                // --- SEÇÃO 1: OPERAÇÃO COMERCIAL (PRIORIDADE ALTA) ---
+
+                // Botão de Comandas - O coração da loja
                 MenuActionCard(
-                    title = "Nova Coleta",
-                    description = "Iniciar contagem de inventário",
-                    icon = Icons.Default.CameraAlt,
-                    containerColor = colorResource(R.color.basic_lilas),
-                    iconColor =  colorResource(R.color.dark_purple),
-                    onClick = onNavigateToScan
+                    title = "Comandas Ativas",
+                    description = "Gerenciar mesas e consumo dos players",
+                    icon = Icons.Default.Assignment,
+                    containerColor = colorResource(R.color.basic_purple),
+                    iconColor = Color.White,
+                    onClick = onNavigateToSales
                 )
 
-                // Linha com Importar e Histórico
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     SecondaryMenuCard(
                         modifier = Modifier.weight(1f),
-                        title = "Importar",
-                        subtitle = "Catálogo Excel",
+                        title = "Venda Rápida",
+                        subtitle = "Balcão (Boosters/Acessórios)",
                         icon = Icons.Default.ShoppingCart,
-                        onClick  = { showImportSheet = true }
+                        onClick = onNavigateToKits
                     )
                     SecondaryMenuCard(
                         modifier = Modifier.weight(1f),
-                        title = "Histórico",
-                        subtitle = "Ver Seções",
-                        icon = Icons.Default.List,
-                        onClick = onNavigateToHistory
+                        title = "Nova Coleta",
+                        subtitle = "Scanner de Inventário",
+                        icon = Icons.Default.CameraAlt,
+                        onClick = onNavigateToScan
                     )
                 }
 
+                // --- SEÇÃO 2: GESTÃO E LOGÍSTICA ---
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    SecondaryMenuCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Estoque Cloud",
+                        subtitle = "Saldos e Cards",
+                        icon = Icons.Default.Inventory,
+                        onClick = onNavigateToStock
+                    )
+                    SecondaryMenuCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Importar CSV",
+                        subtitle = "Catálogo da Loja",
+                        icon = Icons.Default.UploadFile,
+                        onClick = { showImportSheet = true }
+                    )
+                }
+
+                // --- SEÇÃO 3: RELATÓRIOS ---
+
+                MenuActionCard(
+                    title = "Histórico & Relatórios",
+                    description = "Ver seções salvas e fechamento de caixa",
+                    icon = Icons.Default.History,
+                    containerColor = Color.White,
+                    iconColor = colorResource(R.color.basic_purple),
+                    onClick = onNavigateToHistory
+                )
+
                 Spacer(modifier = Modifier.weight(1f))
 
+                // Rodapé com versão
                 Text(
-                    text = "v1.0.0 - DAUX Sistemas",
+                    text = "v2.0.0 Cloud - Chão Sistemas",
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.LightGray
+                    color = Color.LightGray,
+                    letterSpacing = 1.sp
                 )
             }
         }
 
-        // 2. CAMADA DE LOADING (Flutua sobre o Scaffold)
+        // Overlay de Loading
         if (isLoading) {
             Surface(
                 modifier = Modifier.fillMaxSize(),
-                color = Color.Black.copy(alpha = 0.5f) // Fundo semi-transparente
+                color = Color.Black.copy(alpha = 0.6f)
             ) {
                 Column(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    CircularProgressIndicator(color = colorResource(R.color.basic_purple))
+                    CircularProgressIndicator(color = Color.White)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Processando CSV...", color = Color.White)
+                    Text("Sincronizando Dados...", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }
-    } // FIM DO BOX
+    }
 
-    // 3. BOTTOM SHEET
     if (showImportSheet) {
         ImportSheet(
             viewModel = importViewModel,
             onDismiss = { showImportSheet = false }
-            // DICA: Se você adicionar um callback 'onLoading' no seu ImportSheet,
-            // você consegue mudar o valor de 'isLoading' aqui!
         )
     }
 }
+
+
