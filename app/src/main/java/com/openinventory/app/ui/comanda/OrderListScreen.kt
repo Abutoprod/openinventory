@@ -1,5 +1,6 @@
 package com.openinventory.app.ui.comanda
-
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.Icons // IMPORTANTE para clique longo
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,13 +14,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.openinventory.app.data.database.entity.OrderEntity
 import androidx.compose.material.icons.filled.Add
-
+import android.content.Intent
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderListScreen(
     viewModel: OrderViewModel,
     onOrderClick: (OrderEntity) -> Unit
 ) {
+    val context = LocalContext.current
     val orders by viewModel.orders.collectAsState()
     val confirmedItems by viewModel.confirmedItems.collectAsState()
 
@@ -167,15 +169,22 @@ fun OrderListScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // BOTÃO FINALIZAR COMANDA
+                // Procure o botão de finalizar dentro do ModalBottomSheet ou Dialog
                 Button(
                     onClick = {
-                        viewModel.finishOrder(selectedOrder!!.orderId)
-                        showSheet = false
-                    },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)) // Vermelho
+                        // Altere de finishOrder para finishOrderWithReceipt
+                        viewModel.finishOrderWithReceipt(selectedOrder!!) { receipt ->
+                            // Aqui vai a lógica de compartilhar que já conversamos
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, receipt)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Enviar Recibo"))
+                            showSheet = false
+                        }
+                    }
                 ) {
-                    Text("FINALIZAR E FECHAR CONTA", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Finalizar e Gerar Recibo")
                 }
             }
         }

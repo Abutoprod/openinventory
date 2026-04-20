@@ -28,6 +28,9 @@ import com.openinventory.app.ui.comanda.OrderListScreen
 import com.openinventory.app.ui.comanda.OrderViewModel
 import com.openinventory.app.ui.comanda.OrderViewModelFactory
 import com.openinventory.app.ui.comanda.OrderDetailsScreen
+import com.openinventory.app.ui.comanda.QuickSaleScreen
+import com.openinventory.app.ui.history.SalesHistoryScreen
+
 class MainActivity : ComponentActivity() {
 
     private lateinit var scannerManager: ScannerManager
@@ -108,11 +111,19 @@ class MainActivity : ComponentActivity() {
                 }
 
                 composable("pdv_rapido") {
-                    Surface { Text("Venda Rápida de Balcão (TCG)") }
+                    val comandaViewModel: OrderViewModel = viewModel(factory = orderFactory)
+                    QuickSaleScreen(
+                        viewModel = comandaViewModel,
+                        onBack = { navController.popBackStack() }
+                    )
                 }
 
                 composable("history") {
-                    Surface { Text("Histórico de Vendas/Seções") }
+                    val saleViewModel: OrderViewModel = viewModel(factory = orderFactory)
+                    SalesHistoryScreen(
+                        viewModel = saleViewModel,
+                        onBack = { navController.popBackStack() }
+                    )
                 }
             }
         }
