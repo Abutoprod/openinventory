@@ -1,11 +1,13 @@
 package com.openinventory.app.ui.comanda
 
+import android.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items // ESSE IMPORT É O QUE RESOLVE O ERRO DA LISTA
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 
@@ -56,7 +58,13 @@ fun NewOrderDialog(
         confirmButton = {
             Button(
                 onClick = { onConfirm(customerName) },
-                enabled = customerName.isNotBlank()
+                enabled = customerName.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    // Use o colorResource para "traduzir" o ID do XML para uma cor de verdade
+                    containerColor = Color.Yellow,
+                    contentColor = Color.White, // Para o branco, pode usar Color.White direto
+                    disabledContainerColor = Color.LightGray
+                )
             ) {
                 Text("Abrir")
             }

@@ -1,22 +1,29 @@
 package com.openinventory.app.ui.comanda
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.lazy.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.ui.graphics.Color
-import androidx.compose.material.icons.filled.Delete
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.unit.sp
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.openinventory.app.R
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderDetailsScreen(
@@ -27,122 +34,81 @@ fun OrderDetailsScreen(
 ) {
     val tempItems by viewModel.tempItems.collectAsState()
     val inventoryProducts by viewModel.inventoryProducts.collectAsState()
-    val confirmedItems by viewModel.confirmedItems.collectAsState()
-
-    // 1. Estado para o texto da busca
     var searchQuery by remember { mutableStateOf("") }
 
-    // 2. Lógica de filtragem (Atualiza automaticamente quando searchQuery ou inventoryProducts mudam)
     val filteredProducts = remember(searchQuery, inventoryProducts) {
-        if (searchQuery.isEmpty()) {
-            inventoryProducts
-        } else {
-            inventoryProducts.filter { product ->
-                product.description.contains(searchQuery, ignoreCase = true)
-            }
-        }
+        inventoryProducts.filter { it.description.contains(searchQuery, ignoreCase = true) }
     }
 
-    LaunchedEffect(orderId) {
-        viewModel.loadConfirmedItems(orderId)
-    }
+    LaunchedEffect(orderId) { viewModel.loadConfirmedItems(orderId) }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Comanda: $customerName", style = MaterialTheme.typography.headlineSmall)
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 1. CAMPO DE BUSCA (Fixo no topo)
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            label = { Text("Buscar produto...") },
-            modifier = Modifier.fillMaxWidth(),
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 2. LISTA DE ESTOQUE (Ocupa o espaço principal)
-        Text(
-            "Estoque Disponível:",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f) // <--- ISSO garante que ela divida o espaço e não suma com o resto
-                .fillMaxWidth()
-        ) {
-            items(filteredProducts) { product ->
-                ListItem(
-                    headlineContent = { Text(product.description) },
-                    supportingContent = { Text("R$ ${product.salePrice}") },
-                    trailingContent = {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = null,
-                            tint = Color.Blue
-                        )
-                    },
-                    modifier = Modifier.clickable {
-                        viewModel.addToTempList(
-                            product.code,
-                            product.description,
-                            product.salePrice
-                        )
-                    }
-                )
+    Scaffold(
+        containerColor = Color(0xFFF2F4F7),
+        topBar = {
+            Box(modifier = Modifier.fillMaxWidth().height(90.dp)) {
+                Image(painter = painterResource(id = R.drawable.fundo), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), contentDescription = null)
+                Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(colorResource(R.color.basic_purple).copy(alpha = 0.9f), colorResource(R.color.basic_purple).copy(alpha = 0.7f)))))
+                Row(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = Color.White) }
+                    Text("COMANDA: ${customerName.uppercase()}", color = Color.White, fontWeight = FontWeight.Black)
+                }
             }
         }
-
-        // 3. SEÇÃO DO CARRINHO (Só aparece se houver itens)
-        if (tempItems.isNotEmpty()) {
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 2.dp)
-
-            Text(
-                "Itens Selecionados:",
-                style = MaterialTheme.typography.titleSmall,
-                color = Color(0xFFE91E63)
+    ) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Pesquisar produto...") },
+                modifier = Modifier.fillMaxWidth(),
+                leadingIcon = { Icon(Icons.Default.Search, null) },
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = Color.White, unfocusedContainerColor = Color.White)
             )
 
-            // LISTA DO CARRINHO
-            LazyColumn(
-                modifier = Modifier
-                    .weight(0.6f)
-                    .fillMaxWidth()
-            ) {
-                itemsIndexed(tempItems) { index, item ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("• ${item.second}", modifier = Modifier.weight(1f))
-                        Text("R$ ${item.third}", modifier = Modifier.padding(horizontal = 8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                        IconButton(onClick = { viewModel.removeFromTempList(index) }) {
-                            Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red)
+            // Lista de Produtos
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(filteredProducts) { product ->
+                    ListItem(
+                        headlineContent = { Text(product.description, fontWeight = FontWeight.Bold) },
+                        supportingContent = { Text("R$ ${product.salePrice}") },
+                        trailingContent = { Icon(Icons.Default.AddCircle, null, tint = colorResource(R.color.basic_purple)) },
+                        modifier = Modifier.clickable { viewModel.addToTempList(product.code, product.description, product.salePrice) }
+                    )
+                }
+            }
+
+            // Carrinho Flutuante
+            if (tempItems.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("ITENS PARA LANÇAR", fontWeight = FontWeight.Black, fontSize = 12.sp, color = Color.Gray)
+                        LazyColumn(modifier = Modifier.heightIn(max = 120.dp)) {
+                            itemsIndexed(tempItems) { index, item ->
+                                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(item.second, modifier = Modifier.weight(1f), fontSize = 13.sp)
+                                    IconButton(onClick = { viewModel.removeFromTempList(index) }) { Icon(Icons.Default.RemoveCircleOutline, null, tint = Color.Red, modifier = Modifier.size(20.dp)) }
+                                }
+                            }
+                        }
+                        Button(
+                            onClick = { viewModel.confirmOrderItems(orderId); onBack() },
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = colorResource(R.color.basic_purple))
+                        ) {
+                            Text("CONFIRMAR LANÇAMENTO", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
-            } // <--- AQUI FECHA O LAZYCOLUMN DO CARRINHO
-
-            // 4. BOTÃO DE CONFIRMAÇÃO (FICA FORA DA LISTA, MAS DENTRO DO IF)
-            Button(
-                onClick = {
-                    viewModel.confirmOrderItems(orderId)
-                    onBack()
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .padding(top = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
-            ) {
-                Text("CONFIRMAR LANÇAMENTO", fontWeight = FontWeight.Bold)
             }
-        } // <--- AQUI FECHA O IF (TEMPITEMS.ISNOTEMPTY)
-    } // <--- AQUI FECHA A COLUMN PRINCIPAL
-} // <--- AQUI FECHA A FUNÇÃO ORDERDETAILSSCREEN
+        }
+    }
+}

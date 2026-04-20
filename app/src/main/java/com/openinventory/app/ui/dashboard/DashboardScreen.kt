@@ -1,10 +1,11 @@
-package com.openinventory.app.ui.menu
-
+package com.openinventory.app.ui.dashboard
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -15,31 +16,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.openinventory.app.R
-import com.openinventory.app.ui.import.ImportSheet
-import com.openinventory.app.ui.import.ImportViewModel
+// Import importante para as legendas automáticas (FlowRow)
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 
-// --- COMPONENTE DE CARD PREMIUM (ModernMenuCard) ---
-@OptIn(ExperimentalMaterial3Api::class)
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun MainMenu(
-    onNavigateToScan: () -> Unit,
-    onNavigateToStock: () -> Unit,
-    onNavigateToSales: () -> Unit,
-    onNavigateToKits: () -> Unit,
-    importViewModel: ImportViewModel,
-    onNavigateToHistory: () -> Unit
+fun DashboardScreen(
+    viewModel: DashboardViewModel = viewModel(),
+    onBack: () -> Unit
 ) {
-    var showImportSheet by remember { mutableStateOf(false) }
+    val uiState by viewModel.uiState.collectAsState()
     val BackgroundColor = Color(0xFFF2F4F7)
-    val PrimaryPurple = colorResource(R.color.orange_back)
 
     Scaffold(
         containerColor = BackgroundColor,
@@ -89,81 +86,80 @@ fun MainMenu(
                 }
             }
         }
-    ) { padding ->
+    ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier.padding(padding).fillMaxSize(),
+            modifier = Modifier
+                .padding(paddingValues)
+                .fillMaxSize(),
             contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-
-
-            // Destaque: Comandas (Roxo)
+            // 1. Cards Principais de Faturamento
             item {
-                MainModernMenuCard(
-                    title = "Comandas Ativas",
-                    subtitle = "Gestão de mesas e consumo",
-                    icon = Icons.Default.ConfirmationNumber,
-                    containerColor = PrimaryPurple,
-                    contentColor = Color.White,
-                    onClick = onNavigateToSales
-                )
-            }
-
-            // PDV e Métricas lado a lado
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    ModernMenuCard(
-                        modifier = Modifier.weight(1f),
-                        title = "PDV",
-                        subtitle = "Venda Rápida",
-                        icon = Icons.Default.FlashOn,
-                        onClick = onNavigateToKits
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    StatCard(
+                        title = "FATURAMENTO",
+                        value = "R$ ${String.format("%.2f", uiState.totalRevenue)}",
+                        icon = Icons.Default.Payments,
+                        color = colorResource(R.color.basic_purple),
+                        modifier = Modifier.weight(1f)
                     )
-                    ModernMenuCard(
-                        modifier = Modifier.weight(1f),
-                        title = "Métricas",
-                        subtitle = "Dashboard",
-                        icon = Icons.Default.BarChart,
-                        onClick = onNavigateToScan
+                    StatCard(
+                        title = "LUCRO",
+                        value = "R$ ${String.format("%.2f", uiState.totalProfit)}",
+                        icon = Icons.Default.TrendingUp,
+                        color = Color(0xFF4CAF50),
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
 
+            // 2. Gráfico Donut (Mais moderno que Pizza)
             item {
-                Text("GERENCIAMENTO", style = MaterialTheme.typography.labelLarge.copy(color = Color.Gray, fontWeight = FontWeight.Bold), modifier = Modifier.padding(top = 8.dp))
-            }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "DISTRIBUIÇÃO POR PRODUTO",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Gray
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
 
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    ModernMenuCard(
-                        modifier = Modifier.weight(1f),
-                        title = "Estoque",
-                        subtitle = "Cloud Sync",
-                        icon = Icons.Default.Layers,
-                        onClick = onNavigateToStock
-                    )
-                    ModernMenuCard(
-                        modifier = Modifier.weight(1f),
-                        title = "Importar",
-                        subtitle = "Planilha CSV",
-                        icon = Icons.Default.CloudUpload,
-                        onClick = { showImportSheet = true }
-                    )
+                        if (uiState.topProducts.isNotEmpty()) {
+                            DashboardDonutChart(products = uiState.topProducts)
+                        } else {
+                            Box(Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
+                                Text("Aguardando vendas...", color = Color.LightGray)
+                            }
+                        }
+                    }
                 }
             }
 
+            // 3. Ranking com PerformanceItem Refatorado
             item {
-                ModernMenuCard(
-                    title = "Relatórios",
-                    subtitle = "Auditoria e histórico",
-                    icon = Icons.Default.Analytics,
-                    onClick = onNavigateToHistory
+                Text(
+                    text = "TOP PRODUTOS",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray
+                    )
                 )
+            }
+
+            items(uiState.topProducts) { product ->
+                PerformanceItem(product)
             }
         }
-    }
-
-    if (showImportSheet) {
-        ImportSheet(viewModel = importViewModel, onDismiss = { showImportSheet = false })
     }
 }

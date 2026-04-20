@@ -9,6 +9,7 @@ import com.google.firebase.Firebase
 import com.google.firebase.firestore.FieldValue
 import  kotlinx.coroutines.flow.combine
 import java.util.Date
+import com.openinventory.app.ui.sale.SaleModel
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.firestore
 import com.openinventory.app.core.config.CompanyConstants
@@ -18,12 +19,11 @@ import com.openinventory.app.data.repository.OrderRepository
 import com.openinventory.app.data.repository.ProductRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import com.openinventory.app.ui.history.SaleItem
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
-import com.openinventory.app.ui.history.SaleModel
+import com.openinventory.app.ui.sale.SaleItem
 
 class OrderViewModel(
     private val repository: OrderRepository,
@@ -204,26 +204,58 @@ class OrderViewModel(
     }
 
     fun finishOrderWithReceipt(order: OrderEntity, onComplete: (String) -> Unit) {
-        // 1. Criamos a lista de mapas para o Firebase entender
-        val itemsSummary = _confirmedItems.value.map {
-            mapOf("name" to it.first, "price" to it.second)
+        val dateId = java.text.SimpleDateFormat("yyyy_MM_dd", java.util.Locale.getDefault()).format(java.util.Date())
+        val statsRef = db.collection("daily_stats").document(dateId)
+        val orderRef = db.collection("orders").document(order.orderId)
+
+        // Cálculo do lucro real da comanda
+        val totalProfit = _confirmedItems.value.sumOf { item ->
+            val product = inventoryProducts.value.find { it.description == item.first }
+            val cost = product?.purchasePrice ?: 0.0
+            item.second - cost
         }
 
-        val receipt = buildReceiptText(
-            items = _confirmedItems.value,
-            total = order.totalAmount,
-            name = order.customerName,
-            cpf = null
-        )
+        db.runTransaction { transaction ->
+            val statsSnap = transaction.get(statsRef)
 
-        // 2. No update, passamos o itemsSummary e a data de fechamento
-        db.collection("orders").document(order.orderId)
-            .update(
-                "status", "FINISHED",
-                "itemsSummary", itemsSummary,
-                "closedAt", FieldValue.serverTimestamp()
-            )
-            .addOnSuccessListener { onComplete(receipt) }
+            // 1. Atualizar cada produto da comanda nas estatísticas (Valor Agregado)
+            _confirmedItems.value.forEach { (name, price) ->
+                val product = inventoryProducts.value.find { it.description == name }
+                val productId = product?.code ?: name
+
+                val topProductRef = statsRef.collection("top_products").document(productId)
+                transaction.set(topProductRef,
+                    mapOf(
+                        "name" to name,
+                        "quantity" to FieldValue.increment(1),
+                        "totalRevenue" to FieldValue.increment(price) // Importante para o gráfico de pizza
+                    ),
+                    com.google.firebase.firestore.SetOptions.merge()
+                )
+            }
+
+            // 2. Fechar a comanda
+            transaction.update(orderRef, "status", "FINISHED", "closedAt", FieldValue.serverTimestamp())
+
+            // 3. Atualizar Dashboard
+            val saleTotal = order.totalAmount
+            if (!statsSnap.exists()) {
+                transaction.set(statsRef, hashMapOf(
+                    "totalRevenue" to saleTotal,
+                    "totalProfit" to totalProfit,
+                    "count" to 1
+                ))
+            } else {
+                transaction.update(statsRef,
+                    "totalRevenue", FieldValue.increment(saleTotal),
+                    "totalProfit", FieldValue.increment(totalProfit),
+                    "count", FieldValue.increment(1)
+                )
+            }
+            null
+        }.addOnSuccessListener {
+            onComplete(buildReceiptText(_confirmedItems.value, order.totalAmount, order.customerName, null))
+        }
     }
     private fun observeSalesHistory() {
         val quickSalesFlow = MutableStateFlow<List<SaleModel>>(emptyList())
@@ -280,29 +312,67 @@ class OrderViewModel(
         val items = _tempItems.value
         if (items.isEmpty()) return
 
-        val total = items.sumOf { it.third }
-        val itemsAsPairs = items.map { it.second to it.third }
-        val receipt = buildReceiptText(itemsAsPairs, total, quickSaleCustomerName, quickSaleCustomerCpf)
+        val totalRevenue = items.sumOf { it.third }
 
-        val batch = db.batch()
-        val saleRef = db.collection("sales").document()
-
-        items.forEach { (productId, _, _) ->
-            val productRef = db.collection("products").document(productId)
-            batch.update(productRef, "quantity", FieldValue.increment(-1.0))
+        // 1. Cálculo do Lucro Real cruzando com os dados do repositório local
+        val totalProfit = items.sumOf { item ->
+            val product = inventoryProducts.value.find { it.code == item.first }
+            val cost = product?.purchasePrice ?: 0.0
+            item.third - cost
         }
 
-        val saleData = hashMapOf(
-            "items" to items.map { mapOf("name" to it.second, "price" to it.third) },
-            "total" to total,
-            "customerName" to quickSaleCustomerName,
-            "customerCpf" to quickSaleCustomerCpf,
-            "timestamp" to FieldValue.serverTimestamp(),
-            "type" to "QUICK_SALE"
-        )
+        val dateId = java.text.SimpleDateFormat("yyyy_MM_dd", java.util.Locale.getDefault()).format(java.util.Date())
+        val statsRef = db.collection("daily_stats").document(dateId)
 
-        batch.set(saleRef, saleData)
-        batch.commit().addOnSuccessListener {
+        db.runTransaction { transaction ->
+            // LEITURA (Obrigatório ser primeiro)
+            val statsSnap = transaction.get(statsRef)
+
+            // ESCRITAS
+            items.forEach { (productId, name, _) ->
+                // Baixa de estoque
+                val productRef = db.collection("products").document(productId)
+                transaction.update(productRef, "quantity", FieldValue.increment(-1.0))
+
+                // Contador de produtos mais vendidos (subcoleção para o gráfico)
+                val topProductRef = statsRef.collection("top_products").document(productId)
+                transaction.set(topProductRef,
+                    mapOf("name" to name, "quantity" to FieldValue.increment(1)),
+                    com.google.firebase.firestore.SetOptions.merge()
+                )
+            }
+
+            // Registro da venda individual com lucro
+            val saleRef = db.collection("sales").document()
+            val saleData = hashMapOf(
+                "items" to items.map { mapOf("name" to it.second, "price" to it.third) },
+                "total" to totalRevenue,
+                "profit" to totalProfit,
+                "customerName" to quickSaleCustomerName,
+                "customerCpf" to quickSaleCustomerCpf,
+                "timestamp" to FieldValue.serverTimestamp(),
+                "type" to "QUICK_SALE"
+            )
+            transaction.set(saleRef, saleData)
+
+            // Atualização do Dashboard Diário
+            if (!statsSnap.exists()) {
+                transaction.set(statsRef, hashMapOf(
+                    "totalRevenue" to totalRevenue,
+                    "totalProfit" to totalProfit,
+                    "count" to 1
+                ))
+            } else {
+                transaction.update(statsRef,
+                    "totalRevenue", FieldValue.increment(totalRevenue),
+                    "totalProfit", FieldValue.increment(totalProfit),
+                    "count", FieldValue.increment(1)
+                )
+            }
+            null
+        }.addOnSuccessListener {
+            val itemsAsPairs = items.map { it.second to it.third }
+            val receipt = buildReceiptText(itemsAsPairs, totalRevenue, quickSaleCustomerName, quickSaleCustomerCpf)
             clearTempList()
             quickSaleCustomerName = ""
             quickSaleCustomerCpf = ""

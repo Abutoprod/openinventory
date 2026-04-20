@@ -11,4 +11,6 @@
     <color name="basic_purple">#6A1B9A</color>
     <color name="basic_lilas">#A47DAB</color>
     <color name="dark_purple">#332736</color>
+    <color name="yellow_back">#FFC107</color>
+    <color name="orange_back">#FF5722</color>
 </resources>

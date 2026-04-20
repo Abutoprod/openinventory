@@ -53,15 +53,29 @@ dependencies {
     val cameraxVersion = "1.3.1"
     // Core do Room
     implementation("androidx.room:room-runtime:$room_version")
+// Adicione esta linha:
+    implementation("androidx.core:core-splashscreen:1.0.1")
 
+    // Verifique se você também tem a do Material 3, já que o erro citou ela:
+    implementation("androidx.compose.material3:material3:1.2.0")
     // Suporte para Coroutines (suspend functions) e Flow
     implementation("androidx.room:room-ktx:$room_version")
 
     // Processador de anotações (O "cérebro" que gera o código)
     ksp("androidx.room:room-compiler:$room_version")
-
+    implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation("io.coil-kt:coil-gif:2.5.0")
     // Opcional: Para testar o banco de dados
     testImplementation("androidx.room:room-testing:$room_version")
+    implementation("com.airbnb.android:lottie-compose:6.3.0")
+    // Biblioteca para a Splash Screen (Android 12+)
+    implementation("androidx.core:core-splashscreen:1.0.1")
+
+    // Biblioteca do Material Design 3 (Necessária para o seu theme.xml)
+    implementation("com.google.android.material:material:1.11.0")
+
+    // Se estiver usando Compose, garanta que esta também esteja lá:
+    implementation("androidx.compose.material3:material3:1.2.0")
 
     implementation("io.insert-koin:koin-androidx-compose:3.5.3")
 

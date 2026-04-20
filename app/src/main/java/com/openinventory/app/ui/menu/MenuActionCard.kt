@@ -11,77 +11,150 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openinventory.app.R
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MenuActionCard(
+fun MainModernMenuCard(
     title: String,
-    description: String,
+    subtitle: String,
     icon: ImageVector,
-    containerColor: Color,
-    iconColor: Color,
+    containerColor: Color = Color.White,
+    contentColor: Color = Color(0xFF1A1C1E),
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor)
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
-        Row(modifier = Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(40.dp), tint = iconColor)
-            Spacer(modifier = Modifier.width(20.dp))
-            Column {
-                Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-                Text(description, style = MaterialTheme.typography.bodyMedium)
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Container do Ícone (Fixo, não deforma)
+            Surface(
+                modifier = Modifier.size(52.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = if (containerColor == Color.White) contentColor.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.2f)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.padding(12.dp),
+                    tint = if (containerColor == colorResource(id = R.color.white)) {
+                        contentColor
+                    } else {
+                        colorResource(id = R.color.white)
+                    } )
+            }
+
+            // A MUDANÇA ESTÁ AQUI: weight(1f) e padding
+            Column(
+                modifier = Modifier
+                    .padding(start = 16.dp)
+                    .weight(1f) // Preenche o espaço restante sem deformar o card
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-0.5).sp,
+                        fontSize = 18.sp // Ajuste leve para ser mais responsivo
+                    ),
+                    color = if (containerColor == Color.White) contentColor else Color.White,
+                    maxLines = 1, // No menu, geralmente 1 linha é melhor para não deformar a altura
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp
+                    ),
+                    color = if (containerColor == Color.White) contentColor.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.8f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }
 }
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SecondaryMenuCard(
-    modifier: Modifier = Modifier,
+fun ModernMenuCard(
     title: String,
     subtitle: String,
     icon: ImageVector,
+    containerColor: Color = Color.White,
+    contentColor: Color = Color(0xFF1A1C1E),
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Card(
         onClick = onClick,
-        modifier = modifier.height(130.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .padding(16.dp)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(32.dp),
-                tint = colorResource(R.color.basic_purple)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = title,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                color = Color.DarkGray
-            )
-            Text(
-                text = subtitle,
-                fontSize = 11.sp,
-                color = Color.Gray,
-                lineHeight = 14.sp
-            )
+            // Container do Ícone (Fixo, não deforma)
+            Surface(
+                modifier = Modifier.size(52.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = if (containerColor == Color.White) contentColor.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.2f)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.padding(12.dp),
+                    tint = if (containerColor == colorResource(id = R.color.yellow_back)) {
+                        contentColor
+                    } else {
+                        colorResource(id = R.color.yellow_back)
+                    } )
+            }
+
+            // A MUDANÇA ESTÁ AQUI: weight(1f) e padding
+            Column(
+                modifier = Modifier
+                    .padding(start = 16.dp)
+                    .weight(1f) // Preenche o espaço restante sem deformar o card
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-0.5).sp,
+                        fontSize = 14.sp // Ajuste leve para ser mais responsivo
+                    ),
+                    color = if (containerColor == Color.White) contentColor else Color.White,
+                    maxLines = 1, // No menu, geralmente 1 linha é melhor para não deformar a altura
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp
+                    ),
+                    color = if (containerColor == Color.White) contentColor.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.8f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
