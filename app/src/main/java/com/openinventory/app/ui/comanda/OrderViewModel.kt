@@ -31,6 +31,7 @@ class OrderViewModel(
 ) : ViewModel() {
 
     private val db = Firebase.firestore
+    private var isHistoryLoaded = false
 
     private val _orders = MutableStateFlow<List<OrderEntity>>(emptyList())
     val orders: StateFlow<List<OrderEntity>> = _orders.asStateFlow()
@@ -62,9 +63,16 @@ class OrderViewModel(
 
     init {
         observeFirebaseOrders()
-        refreshCustomers()
+       // refreshCustomers()
         //observeCustomers()
-        observeSalesHistory()
+        //observeSalesHistory()
+    }
+    fun loadHistoryIfNeeded() {
+        // Se já carregou uma vez, não gasta consulta de novo à toa
+        if (!isHistoryLoaded) {
+            observeSalesHistory()
+            isHistoryLoaded = true
+        }
     }
 
     // --- LÓGICA DE ESCUTA DO FIREBASE ---
@@ -217,6 +225,12 @@ class OrderViewModel(
 
         db.runTransaction { transaction ->
             val statsSnap = transaction.get(statsRef)
+            // --- 0.5 PARA SALVAR OS ITENS NA COMANDA ---
+            val summary = _confirmedItems.value.map {
+                mapOf("name" to it.first, "price" to it.second)
+            }
+            transaction.update(orderRef, "itemsSummary", summary)
+            // ----------------------------------------------------------
 
             // 1. Atualizar cada produto da comanda nas estatísticas (Valor Agregado)
             _confirmedItems.value.forEach { (name, price) ->
@@ -314,7 +328,7 @@ class OrderViewModel(
 
         val totalRevenue = items.sumOf { it.third }
 
-        // 1. Cálculo do Lucro Real cruzando com os dados do repositório local
+        // Cálculo do lucro (Preço de Venda - Preço de Custo)
         val totalProfit = items.sumOf { item ->
             val product = inventoryProducts.value.find { it.code == item.first }
             val cost = product?.purchasePrice ?: 0.0
@@ -325,24 +339,21 @@ class OrderViewModel(
         val statsRef = db.collection("daily_stats").document(dateId)
 
         db.runTransaction { transaction ->
-            // LEITURA (Obrigatório ser primeiro)
             val statsSnap = transaction.get(statsRef)
 
-            // ESCRITAS
-            items.forEach { (productId, name, _) ->
-                // Baixa de estoque
-                val productRef = db.collection("products").document(productId)
-                transaction.update(productRef, "quantity", FieldValue.increment(-1.0))
+            // IMPORTANTE: Atualizar o Ranking de Produtos (Gráfico de Pizza)
+            items.forEach { (_, productName, productPrice) ->
+                // Usamos o NOME do produto como ID para bater com o Dashboard
+                val topProductRef = statsRef.collection("top_products").document(productName)
 
-                // Contador de produtos mais vendidos (subcoleção para o gráfico)
-                val topProductRef = statsRef.collection("top_products").document(productId)
-                transaction.set(topProductRef,
-                    mapOf("name" to name, "quantity" to FieldValue.increment(1)),
-                    com.google.firebase.firestore.SetOptions.merge()
-                )
+                transaction.set(topProductRef, hashMapOf(
+                    "name" to productName,
+                    "quantity" to FieldValue.increment(1),
+                    "totalRevenue" to FieldValue.increment(productPrice)
+                ), com.google.firebase.firestore.SetOptions.merge())
             }
 
-            // Registro da venda individual com lucro
+            // Salva a venda no histórico global
             val saleRef = db.collection("sales").document()
             val saleData = hashMapOf(
                 "items" to items.map { mapOf("name" to it.second, "price" to it.third) },
@@ -355,7 +366,7 @@ class OrderViewModel(
             )
             transaction.set(saleRef, saleData)
 
-            // Atualização do Dashboard Diário
+            // Atualiza os totais do dia
             if (!statsSnap.exists()) {
                 transaction.set(statsRef, hashMapOf(
                     "totalRevenue" to totalRevenue,
@@ -371,8 +382,7 @@ class OrderViewModel(
             }
             null
         }.addOnSuccessListener {
-            val itemsAsPairs = items.map { it.second to it.third }
-            val receipt = buildReceiptText(itemsAsPairs, totalRevenue, quickSaleCustomerName, quickSaleCustomerCpf)
+            val receipt = buildReceiptText(items.map { it.second to it.third }, totalRevenue, quickSaleCustomerName, quickSaleCustomerCpf)
             clearTempList()
             quickSaleCustomerName = ""
             quickSaleCustomerCpf = ""

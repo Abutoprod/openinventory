@@ -36,6 +36,10 @@ import com.openinventory.app.ui.sale.SaleModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SalesHistoryScreen(viewModel: OrderViewModel, onBack: () -> Unit) {
+    // DISPARA A CARGA DOS DADOS AQUI
+    LaunchedEffect(Unit) {
+        viewModel.loadHistoryIfNeeded()
+    }
     val sales by viewModel.salesHistory.collectAsState()
 
     Scaffold(
