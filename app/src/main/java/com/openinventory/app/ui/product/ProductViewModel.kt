@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import android.util.Log
+import com.openinventory.app.core.config.CompanyConstants
 import kotlinx.coroutines.Dispatchers
 
 class ProductViewModel(private val repository: ProductRepository) : ViewModel() {
@@ -23,22 +24,29 @@ class ProductViewModel(private val repository: ProductRepository) : ViewModel() 
         )
 
     init {
-        // 2. Sempre que a ViewModel nasce (abriu a tela), tenta sincronizar
+        // 2. Sempre que a ViewModel nasce (abriu a tela), tenta sincronizar a filial atual
         refreshFromFirebase()
     }
 
     fun refreshFromFirebase() {
         viewModelScope.launch {
-            repository.syncWithFirebase()
+            try {
+                val currentStore = CompanyConstants.currentStoreId
+                repository.syncWithFirebase(currentStore)
+                Log.d("VM_DEBUG", "Refresh solicitado para a filial: $currentStore")
+            } catch (e: Exception) {
+                Log.e("VM_DEBUG", "Erro ao atualizar dados: ${e.message}")
+            }
         }
     }
 
     fun saveNewProduct(product: ProductEntity) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                repository.insertProduct(product)
-                // Opcional: Log de sucesso
-                Log.d("VM_DEBUG", "Produto ${product.description} salvo com sucesso.")
+                // Passa a filial atual para o repositório salvar corretamente no Firebase
+                val currentStore = CompanyConstants.currentStoreId
+                repository.insertProduct(product, currentStore)
+                Log.d("VM_DEBUG", "Produto ${product.description} salvo com sucesso na filial $currentStore.")
             } catch (e: Exception) {
                 Log.e("VM_DEBUG", "Erro ao salvar produto: ${e.message}")
             }
@@ -47,8 +55,26 @@ class ProductViewModel(private val repository: ProductRepository) : ViewModel() 
 
     // 3. Função para dar baixa ou atualizar estoque via UI
     fun updateStock(sku: String, newQuantity: Int) {
-        viewModelScope.launch {
-            repository.updateProductQuantity(sku, newQuantity)
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val currentStore = CompanyConstants.currentStoreId
+                repository.updateProductQuantity(sku, newQuantity, currentStore)
+                Log.d("VM_DEBUG", "Estoque atualizado: SKU $sku para $newQuantity na filial $currentStore")
+            } catch (e: Exception) {
+                Log.e("VM_DEBUG", "Erro ao atualizar estoque: ${e.message}")
+            }
+        }
+    }
+
+    // 4. Importação de CSV vinculada à loja
+    fun importCsvData(uri: android.net.Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentStore = CompanyConstants.currentStoreId
+            val importedCount = repository.importCsv(uri, currentStore)
+            Log.d("VM_DEBUG", "Importação finalizada: $importedCount itens para a filial $currentStore")
+
+            // Após importar, força um refresh para garantir que o UI está batendo com o novo estado
+            refreshFromFirebase()
         }
     }
 }

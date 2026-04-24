@@ -11,7 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
+import com.openinventory.app.core.config.CompanyConstants
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,6 +26,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ReceiptDialog
 import com.openinventory.app.R
 import com.openinventory.app.data.database.entity.OrderEntity
 
@@ -38,6 +39,8 @@ fun OrderListScreen(
     val context = LocalContext.current
     val orders by viewModel.orders.collectAsState()
     val confirmedItems by viewModel.confirmedItems.collectAsState()
+    var showReceiptDialog by remember { mutableStateOf(false) }
+    var lastReceiptText by remember { mutableStateOf("") }
 
     var showSheet by remember { mutableStateOf(false) }
     var selectedOrder by remember { mutableStateOf<OrderEntity?>(null) }
@@ -46,7 +49,7 @@ fun OrderListScreen(
     var newCustomerName by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
-        viewModel.observeFirebaseOrders()
+        viewModel.observeFirebaseOrders(CompanyConstants.currentStoreId)
     }
 
     Scaffold(
@@ -151,7 +154,7 @@ fun OrderListScreen(
                 Button(
                     onClick = {
                         if (newCustomerName.isNotBlank()) {
-                            viewModel.createNewOrder(newCustomerName)
+                            viewModel.createNewOrder(newCustomerName, CompanyConstants.currentStoreId)
                             newCustomerName = ""
                             showDialog = false
                         }
@@ -162,6 +165,7 @@ fun OrderListScreen(
         )
     }
 
+    // --- SHEET DE RESUMO ---
     // --- SHEET DE RESUMO ---
     if (showSheet && selectedOrder != null) {
         ModalBottomSheet(
@@ -184,14 +188,12 @@ fun OrderListScreen(
                     }
                 }
 
+                // BOTÃO DE FINALIZAR ATUALIZADO
                 Button(
                     onClick = {
                         viewModel.finishOrderWithReceipt(selectedOrder!!) { receipt ->
-                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, receipt)
-                            }
-                            context.startActivity(Intent.createChooser(intent, "Enviar Recibo"))
+                            lastReceiptText = receipt
+                            showReceiptDialog = true // Mostra o diálogo bonito em vez de abrir o Share direto
                             showSheet = false
                         }
                     },
@@ -205,5 +207,65 @@ fun OrderListScreen(
                 }
             }
         }
+    }
+
+// --- NOVO DIÁLOGO DE RECIBO ESTILIZADO ---
+    // --- SHEET DE RESUMO ---
+    if (showSheet && selectedOrder != null) {
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            sheetState = sheetState,
+            containerColor = Color.White
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+                Text(selectedOrder?.customerName?.uppercase() ?: "", fontWeight = FontWeight.Black, fontSize = 20.sp)
+                Text("Total: R$ ${String.format("%.2f", selectedOrder?.totalAmount)}", color = colorResource(R.color.basic_purple), fontWeight = FontWeight.Bold)
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), thickness = 0.5.dp)
+
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
+                    items(confirmedItems) { item ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(item.first, modifier = Modifier.weight(1f), fontSize = 14.sp)
+                            Text("R$ ${String.format("%.2f", item.second)}", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // BOTÃO DE FINALIZAR ATUALIZADO
+                Button(
+                    onClick = {
+                        viewModel.finishOrderWithReceipt(selectedOrder!!) { receipt ->
+                            lastReceiptText = receipt
+                            showReceiptDialog = true // Mostra o diálogo bonito em vez de abrir o Share direto
+                            showSheet = false
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp).height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.ReceiptLong, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("FINALIZAR E GERAR RECIBO", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+
+// --- NOVO DIÁLOGO DE RECIBO ESTILIZADO ---
+    if (showReceiptDialog) {
+        ReceiptDialog(
+            receiptText = lastReceiptText,
+            onConfirm = {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, lastReceiptText)
+                }
+                context.startActivity(Intent.createChooser(intent, "Enviar Recibo"))
+                showReceiptDialog = false
+            },
+            onDismiss = { showReceiptDialog = false }
+        )
     }
 }

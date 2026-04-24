@@ -27,7 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openinventory.app.R
-
+import ReceiptDialog
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickSaleScreen(viewModel: OrderViewModel, onBack: () -> Unit) {
@@ -45,43 +45,21 @@ fun QuickSaleScreen(viewModel: OrderViewModel, onBack: () -> Unit) {
 
     // ALERTA DE RECIBO (Isso vai aparecer ao finalizar)
     if (showReceiptDialog) {
-        AlertDialog(
-            onDismissRequest = { showReceiptDialog = false },
-            title = { Text("Venda Finalizada! 🎉", fontWeight = FontWeight.Black) },
-            text = {
-                Column {
-                    Text("Deseja compartilhar o recibo?", fontSize = 14.sp)
-                    Spacer(Modifier.height(12.dp))
-                    Surface(
-                        color = Color(0xFFF2F4F7),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            lastReceiptText,
-                            modifier = Modifier.padding(12.dp),
-                            fontSize = 11.sp,
-                            lineHeight = 16.sp
-                        )
-                    }
+        ReceiptDialog(
+            receiptText = lastReceiptText,
+            onConfirm = {
+                val sendIntent = Intent().apply {
+                    action = Intent.ACTION_SEND
+                    putExtra(Intent.EXTRA_TEXT, lastReceiptText)
+                    type = "text/plain"
                 }
+                context.startActivity(Intent.createChooser(sendIntent, null))
+                showReceiptDialog = false
+                onBack() // Volta para o menu após partilhar
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val sendIntent = Intent().apply {
-                            action = Intent.ACTION_SEND
-                            putExtra(Intent.EXTRA_TEXT, lastReceiptText)
-                            type = "text/plain"
-                        }
-                        context.startActivity(Intent.createChooser(sendIntent, null))
-                        showReceiptDialog = false
-                        onBack()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = colorResource(R.color.basic_purple))
-                ) { Text("Enviar WhatsApp") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showReceiptDialog = false; onBack() }) { Text("Fechar") }
+            onDismiss = {
+                showReceiptDialog = false
+                onBack() // Também volta se apenas fechar
             }
         )
     }

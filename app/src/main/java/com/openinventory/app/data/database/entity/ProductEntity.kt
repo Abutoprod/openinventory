@@ -10,7 +10,8 @@ data class ProductEntity(
     val purchasePrice: Double = 0.0,
     val category: String = "CONSUMIVEL",
     val salePrice: Double = 0.0,
-    val quantity: Int = 0
+    val quantity: Int = 0,
+    val storeId: String = ""
 ) {
     // Construtor vazio exigido pelo Firebase (se não usar valores padrão acima)
     constructor() : this("", "", 0.0, "", 0.0,0)

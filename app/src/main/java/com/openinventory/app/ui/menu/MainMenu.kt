@@ -23,6 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openinventory.app.R
+import com.openinventory.app.core.config.CompanyConstants
+import androidx.compose.foundation.clickable
 import com.openinventory.app.ui.import.ImportSheet
 import com.openinventory.app.ui.import.ImportViewModel
 
@@ -35,16 +37,18 @@ fun MainMenu(
     onNavigateToSales: () -> Unit,
     onNavigateToKits: () -> Unit,
     importViewModel: ImportViewModel,
-    onNavigateToHistory: () -> Unit
+    onNavigateToHistory: () -> Unit,
+    currentStore: String, // Novo
+    onStoreChange: (String) -> Unit // Novo
 ) {
     var showImportSheet by remember { mutableStateOf(false) }
+    var showStoreMenu by remember { mutableStateOf(false) }
     val BackgroundColor = Color(0xFFF2F4F7)
     val PrimaryPurple = colorResource(R.color.orange_back)
 
     Scaffold(
         containerColor = BackgroundColor,
         topBar = {
-            // TopBar com o degradê Laranja/Amarelo que você escolheu
             Box(modifier = Modifier.fillMaxWidth().height(80.dp)) {
                 Image(
                     painter = painterResource(id = R.drawable.fundo),
@@ -64,28 +68,89 @@ fun MainMenu(
                 )
                 Row(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.2f),
-                        border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.5f))
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.rayeart),
-                            contentDescription = "Logo",
-                            modifier = Modifier.size(54.dp).padding(0.dp)
+                    // Logo e Título
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.White.copy(alpha = 0.2f),
+                            border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.5f))
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.rayeart),
+                                contentDescription = "Logo",
+                                modifier = Modifier.size(54.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = "RAYEARTH",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Black,
+                                color = Color.White,
+                                letterSpacing = 1.5.sp
+                            )
                         )
                     }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(
-                        text = "RAYEARTH GAMES",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Black,
-                            color = Color.White,
-                            letterSpacing = 1.5.sp
+
+                    // SEÇÃO DA FILIAL SELECIONADA
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        modifier = Modifier.clickable { showStoreMenu = true }
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Texto da Filial Atual
+                            Text(
+                                text = if (CompanyConstants.currentStoreId == "BAURU") "BAURU" else "MATRIZ",
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.width(4.dp))
+
+                            Icon(
+                                Icons.Default.Storefront,
+                                contentDescription = "Trocar Loja",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        // Texto pequeno de "Trocar"
+                        Text(
+                            text = "TROCAR",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 8.sp
+                            )
                         )
-                    )
+
+                        DropdownMenu(
+                            expanded = showStoreMenu,
+                            onDismissRequest = { showStoreMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("MATRIZ") },
+                                leadingIcon = { Icon(Icons.Default.LocationOn, null) },
+                                onClick = {
+                                    onStoreChange("MATRIZ")
+                                    showStoreMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("BAURU") },
+                                leadingIcon = { Icon(Icons.Default.LocationOn, null) },
+                                onClick = {
+                                    onStoreChange("BAURU")
+                                    showStoreMenu = false
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }

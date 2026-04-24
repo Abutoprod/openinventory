@@ -11,7 +11,7 @@ import  kotlinx.coroutines.flow.combine
 import java.util.Date
 import com.openinventory.app.ui.sale.SaleModel
 import com.google.firebase.firestore.Query
-import com.google.firebase.firestore.firestore
+import android.util.Log
 import com.openinventory.app.core.config.CompanyConstants
 import com.openinventory.app.data.database.entity.OrderEntity
 import com.openinventory.app.data.database.entity.ProductEntity
@@ -24,13 +24,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import com.openinventory.app.ui.sale.SaleItem
+import com.google.firebase.firestore.ListenerRegistration
 
 class OrderViewModel(
     private val repository: OrderRepository,
-    private val productRepository: ProductRepository
+    private val productRepository: ProductRepository,
+    private val db: com.google.firebase.firestore.FirebaseFirestore
 ) : ViewModel() {
 
-    private val db = Firebase.firestore
+    //private val db = Firebase.firestore
     private var isHistoryLoaded = false
 
     private val _orders = MutableStateFlow<List<OrderEntity>>(emptyList())
@@ -38,7 +40,8 @@ class OrderViewModel(
 
     private val _availableCustomers = MutableStateFlow<List<String>>(emptyList())
     val availableCustomers: StateFlow<List<String>> = _availableCustomers.asStateFlow()
-
+    private var salesListener: ListenerRegistration? = null
+    private var ordersListener: ListenerRegistration? = null
     private val _tempItems = MutableStateFlow<List<Triple<String, String, Double>>>(emptyList())
     val tempItems: StateFlow<List<Triple<String, String, Double>>> = _tempItems.asStateFlow()
 
@@ -62,24 +65,97 @@ class OrderViewModel(
         )
 
     init {
-        observeFirebaseOrders()
-       // refreshCustomers()
-        //observeCustomers()
-        //observeSalesHistory()
+        observeFirebaseOrders(CompanyConstants.currentStoreId)
     }
+
     fun loadHistoryIfNeeded() {
+        // Cancela listeners antigos para não duplicar dados ou filtrar errado ao trocar de filial
+        salesListener?.remove()
+        ordersListener?.remove()
+
+        val currentStore = CompanyConstants.currentStoreId
+        println("DEBUG: Carregando histórico para a filial: $currentStore")
+
+        val quickSalesFlow = MutableStateFlow<List<SaleModel>>(emptyList())
+        val finishedOrdersFlow = MutableStateFlow<List<SaleModel>>(emptyList())
+
+        // 1. Vendas Diretas (QUICK_SALE)
+        salesListener = db.collection("sales")
+            .whereEqualTo("storeId", currentStore) // FILTRO POR FILIAL
+            //.orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit(50)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.i("ERROR","ERRO SALES: ${error.message}")
+                    return@addSnapshotListener
+                }
+
+                val list = snapshot?.documents?.mapNotNull { doc ->
+                    val itemsRaw = doc.get("items") as? List<Map<String, Any>> ?: emptyList()
+                    SaleModel(
+                        customerName = doc.getString("customerName") ?: "Venda Rápida",
+                        total = doc.getDouble("total") ?: 0.0,
+                        timestamp = doc.getTimestamp("timestamp")?.toDate() ?: Date(),
+                        items = itemsRaw.map {
+                            SaleItem(it["name"] as? String ?: "", (it["price"] as? Number)?.toDouble() ?: 0.0)
+                        },
+                        cpf = doc.getString("customerCpf") ?: ""
+                    )
+                } ?: emptyList()
+                quickSalesFlow.value = list
+            }
+
+        // 2. Comandas Finalizadas
+        ordersListener = db.collection("orders")
+            .whereEqualTo("storeId", currentStore) // FILTRO POR FILIAL
+            .whereEqualTo("status", "FINISHED")
+            .orderBy("closedAt", Query.Direction.DESCENDING)
+            .limit(50)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    println("ERRO ORDERS: ${error.message}")
+                    return@addSnapshotListener
+                }
+
+                val list = snapshot?.documents?.mapNotNull { doc ->
+                    val itemsSummary = doc.get("itemsSummary") as? List<Map<String, Any>> ?: emptyList()
+                    SaleModel(
+                        customerName = "Comanda: ${doc.getString("customerName") ?: "Mesa"}",
+                        total = doc.getDouble("totalAmount") ?: 0.0,
+                        timestamp = doc.getTimestamp("closedAt")?.toDate() ?: Date(),
+                        items = itemsSummary.map {
+                            SaleItem(it["name"] as? String ?: "", (it["price"] as? Number)?.toDouble() ?: 0.0)
+                        },
+                        cpf = ""
+                    )
+                } ?: emptyList()
+                finishedOrdersFlow.value = list
+            }
+
+        // 3. Combina os dois fluxos
+        viewModelScope.launch {
+            combine(quickSalesFlow, finishedOrdersFlow) { quick, finished ->
+                (quick + finished).sortedByDescending { it.timestamp }
+            }.collect { combinedList ->
+                _salesHistory.value = combinedList
+            }
+        }
+    }
+    /*fun loadHistoryIfNeeded() {
         // Se já carregou uma vez, não gasta consulta de novo à toa
         if (!isHistoryLoaded) {
             observeSalesHistory()
             isHistoryLoaded = true
         }
-    }
+    }*/
 
     // --- LÓGICA DE ESCUTA DO FIREBASE ---
 
-    fun observeFirebaseOrders() {
+    fun observeFirebaseOrders(storeId: String) {
+
         db.collection("orders")
             .whereEqualTo("status", "OPEN")
+            .whereEqualTo("storeId", storeId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) return@addSnapshotListener
                 val ordersList = snapshot?.documents?.mapNotNull { doc ->
@@ -94,21 +170,21 @@ class OrderViewModel(
             }
     }
 
-    private fun observeCustomers() {
+   /* private fun observeCustomers() {
         db.collection("customers")
             .addSnapshotListener { snapshot, _ ->
                 val names = snapshot?.documents?.mapNotNull { it.getString("name") } ?: emptyList()
                 _availableCustomers.value = names.sorted()
             }
-    }
-    fun refreshCustomers() {
+    }*/
+  /*  fun refreshCustomers() {
         db.collection("customers")
             .get() // Troquei addSnapshotListener por get()
             .addOnSuccessListener { snapshot ->
                 val names = snapshot.documents.mapNotNull { it.getString("name") }
                 _availableCustomers.value = names.sorted()
             }
-    }
+    }*/
 
     // --- GERENCIAMENTO DE ITENS (CARRINHO TEMPORÁRIO) ---
 
@@ -130,41 +206,53 @@ class OrderViewModel(
 
     // --- OPERAÇÕES DE COMANDA ---
 
-    fun createNewOrder(customerName: String) {
+    fun createNewOrder(customerName: String, storeId: String) {
         val newOrder = hashMapOf(
             "customerName" to customerName,
             "status" to "OPEN",
             "openedAt" to FieldValue.serverTimestamp(),
-            "totalAmount" to 0.0
+            "totalAmount" to 0.0,
+            "storeId" to storeId
         )
         db.collection("orders").add(newOrder)
-        db.collection("customers").document(customerName).set(mapOf("name" to customerName))
+        //db.collection("customers").document(customerName).set(mapOf("name" to customerName))
     }
 
     fun confirmOrderItems(orderId: String) {
-        val itemsToSave = _tempItems.value
-        if (itemsToSave.isEmpty()) return
+        val itemsToConfirm = _tempItems.value
+        if (itemsToConfirm.isEmpty()) return
 
-        val batch = db.batch()
-        val orderRef = db.collection("orders").document(orderId)
-        var totalToAdd = 0.0
+        val additionalTotal = itemsToConfirm.sumOf { it.third }
 
-        itemsToSave.forEach { (productId, name, price) ->
-            val newItemRef = orderRef.collection("items").document()
-            batch.set(newItemRef, hashMapOf(
-                "name" to name,
-                "price" to price,
-                "timestamp" to FieldValue.serverTimestamp()
-            ))
-            totalToAdd += price
+        viewModelScope.launch {
+            val orderRef = db.collection("orders").document(orderId)
 
-            // Baixa de estoque
-            val productRef = db.collection("products").document(productId)
-            batch.update(productRef, "quantity", FieldValue.increment(-1.0))
+            db.runTransaction { transaction ->
+                val snapshot = transaction.get(orderRef)
+                val currentTotal = snapshot.getDouble("totalAmount") ?: 0.0
+                val newTotal = currentTotal + additionalTotal
+
+                // 1. Atualiza o totalAmount da comanda somando o anterior + novos
+                transaction.update(orderRef, "totalAmount", newTotal)
+
+                // 2. Adiciona os itens na subcoleção para o histórico
+                itemsToConfirm.forEach { item ->
+                    val itemData = hashMapOf(
+                        "productCode" to item.first,
+                        "name" to item.second,
+                        "price" to item.third,
+                        "timestamp" to FieldValue.serverTimestamp()
+                    )
+                    transaction.set(orderRef.collection("items").document(), itemData)
+                }
+                null
+            }.addOnSuccessListener {
+                // Limpa a lista temporária apenas após o sucesso no Firebase
+                _tempItems.value = emptyList()
+            }.addOnFailureListener { e ->
+                Log.e("OrderViewModel", "Erro ao confirmar itens", e)
+            }
         }
-
-        batch.update(orderRef, "totalAmount", FieldValue.increment(totalToAdd))
-        batch.commit().addOnSuccessListener { clearTempList() }
     }
 
     fun loadConfirmedItems(orderId: String) {
@@ -272,41 +360,57 @@ class OrderViewModel(
         }
     }
     private fun observeSalesHistory() {
+        val currentStore = CompanyConstants.currentStoreId
         val quickSalesFlow = MutableStateFlow<List<SaleModel>>(emptyList())
+        val finishedOrdersFlow = MutableStateFlow<List<SaleModel>>(emptyList())
 
-
+        // Listener para Vendas Diretas
         db.collection("sales")
+            .whereEqualTo("storeId", currentStore)
             .orderBy("timestamp", Query.Direction.DESCENDING)
-            .limit(50) // limitando a 50 registros
-            .addSnapshotListener { snapshot, _ ->
+            .limit(50)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("FirestoreError", "Erro em sales: ${error.message}")
+                    return@addSnapshotListener
+                }
                 val list = snapshot?.documents?.mapNotNull { doc ->
                     val itemsRaw = doc.get("items") as? List<Map<String, Any>> ?: emptyList()
                     SaleModel(
-                        customerName = doc.getString("customerName") ?: "Venda Rápida",
+                        // Se customerName for vazio no banco, define como "Venda Rápida"
+                        customerName = doc.getString("customerName").takeIf { !it.isNullOrBlank() } ?: "Venda Rápida",
                         total = doc.getDouble("total") ?: 0.0,
                         timestamp = doc.getTimestamp("timestamp")?.toDate() ?: Date(),
-                        items = itemsRaw.map { SaleItem(it["name"] as? String ?: "", (it["price"] as? Number)?.toDouble() ?: 0.0) },
+                        items = itemsRaw.map {
+                            SaleItem(
+                                name = it["name"] as? String ?: "",
+                                price = (it["price"] as? Number)?.toDouble() ?: 0.0
+                            )
+                        },
                         cpf = doc.getString("customerCpf") ?: ""
                     )
                 } ?: emptyList()
                 quickSalesFlow.value = list
             }
 
-        val finishedOrdersFlow = MutableStateFlow<List<SaleModel>>(emptyList())
-
-
+        // Listener para Comandas Finalizadas
         db.collection("orders")
+            .whereEqualTo("storeId", currentStore)
             .whereEqualTo("status", "FINISHED")
             .orderBy("closedAt", Query.Direction.DESCENDING)
             .limit(50)
-            .addSnapshotListener { snapshot, _ ->
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("FirestoreError", "Erro em orders: ${error.message}")
+                    return@addSnapshotListener
+                }
                 val list = snapshot?.documents?.mapNotNull { doc ->
                     val itemsRaw = doc.get("itemsSummary") as? List<Map<String, Any>> ?: emptyList()
                     SaleModel(
                         customerName = "Comanda: ${doc.getString("customerName") ?: "Mesa"}",
                         total = doc.getDouble("totalAmount") ?: 0.0,
                         timestamp = doc.getTimestamp("closedAt")?.toDate() ?: Date(),
-                        items = itemsRaw.map { SaleItem(it["name"] as? String ?: "", (it["price"] as? Number)?.toDouble() ?: 0.0) },
+                        items = itemsRaw.map { SaleItem(it["name"] as? String ?: it["description"] as? String ?: "", (it["price"] as? Number)?.toDouble() ?: 0.0) },
                         cpf = ""
                     )
                 } ?: emptyList()
@@ -328,7 +432,9 @@ class OrderViewModel(
 
         val totalRevenue = items.sumOf { it.third }
 
-        // Cálculo do lucro (Preço de Venda - Preço de Custo)
+        // Pegamos o ID da loja atual conforme sua lógica de 'createNewOrder'
+        val currentStore = CompanyConstants.currentStoreId
+
         val totalProfit = items.sumOf { item ->
             val product = inventoryProducts.value.find { it.code == item.first }
             val cost = product?.purchasePrice ?: 0.0
@@ -336,16 +442,17 @@ class OrderViewModel(
         }
 
         val dateId = java.text.SimpleDateFormat("yyyy_MM_dd", java.util.Locale.getDefault()).format(java.util.Date())
-        val statsRef = db.collection("daily_stats").document(dateId)
+
+        // Criamos o ID do documento combinando DATA e STOREID para não misturar as lojas
+        val statsDocId = "${dateId}_$currentStore"
+        val statsRef = db.collection("daily_stats").document(statsDocId)
 
         db.runTransaction { transaction ->
             val statsSnap = transaction.get(statsRef)
 
-            // IMPORTANTE: Atualizar o Ranking de Produtos (Gráfico de Pizza)
+            // Atualizar Ranking de Produtos (Top Products)
             items.forEach { (_, productName, productPrice) ->
-                // Usamos o NOME do produto como ID para bater com o Dashboard
                 val topProductRef = statsRef.collection("top_products").document(productName)
-
                 transaction.set(topProductRef, hashMapOf(
                     "name" to productName,
                     "quantity" to FieldValue.increment(1),
@@ -353,11 +460,12 @@ class OrderViewModel(
                 ), com.google.firebase.firestore.SetOptions.merge())
             }
 
-            // Salva a venda no histórico global
+            // Salva a venda no histórico global com o storeId
             val saleRef = db.collection("sales").document()
             val saleData = hashMapOf(
                 "items" to items.map { mapOf("name" to it.second, "price" to it.third) },
                 "total" to totalRevenue,
+                "storeId" to currentStore, // REGISTRANDO O STOREID DA VENDA
                 "profit" to totalProfit,
                 "customerName" to quickSaleCustomerName,
                 "customerCpf" to quickSaleCustomerCpf,
@@ -366,18 +474,22 @@ class OrderViewModel(
             )
             transaction.set(saleRef, saleData)
 
-            // Atualiza os totais do dia
+            // Atualiza os totais do dia com as propriedades para o filtro do Dashboard
             if (!statsSnap.exists()) {
                 transaction.set(statsRef, hashMapOf(
                     "totalRevenue" to totalRevenue,
                     "totalProfit" to totalProfit,
-                    "count" to 1
+                    "count" to 1,
+                    "storeId" to currentStore, // PROPRIEDADE PARA O DASHBOARD FILTRAR
+                    "dateId" to dateId         // PROPRIEDADE PARA O DASHBOARD FILTRAR
                 ))
             } else {
                 transaction.update(statsRef,
                     "totalRevenue", FieldValue.increment(totalRevenue),
                     "totalProfit", FieldValue.increment(totalProfit),
-                    "count", FieldValue.increment(1)
+                    "count", FieldValue.increment(1),
+                    "storeId", currentStore,
+                    "dateId", dateId
                 )
             }
             null

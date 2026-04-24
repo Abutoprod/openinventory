@@ -1,15 +1,17 @@
 package com.openinventory.app.ui.import
 
 import android.net.Uri
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.openinventory.app.core.config.CompanyConstants
 import com.openinventory.app.data.repository.ProductRepository
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
-import  kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+
 sealed class ImportUiState {
     object Idle : ImportUiState()
     object Loading : ImportUiState()
@@ -22,28 +24,30 @@ class ImportViewModel(private val repository: ProductRepository) : ViewModel() {
     private val _uiState = MutableStateFlow<ImportUiState>(ImportUiState.Idle)
     val uiState: StateFlow<ImportUiState> = _uiState.asStateFlow()
 
-
     fun importFile(uri: Uri) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) { // Importante rodar em IO para não travar a UI
             _uiState.value = ImportUiState.Loading
             try {
-                val count = repository.importCsv(uri) // Pega o número de linhas
+                // 1. Pega a filial atual do arquivo de configuração global
+                val currentStore = CompanyConstants.currentStoreId
 
-                if (count > 0) {
-                    _uiState.value = ImportUiState.Success(count)
+                // 2. Chama a importação e guarda o retorno (quantidade de itens)
+                val totalImported = repository.importCsv(uri, currentStore)
+
+                // 3. Atualiza o estado com base no resultado
+                if (totalImported > 0) {
+                    _uiState.value = ImportUiState.Success(totalImported)
                 } else {
-                    // Se chegou aqui, o arquivo foi lido mas não tinha produtos válidos
                     _uiState.value = ImportUiState.Error("Nenhum produto válido encontrado no arquivo.")
                 }
             } catch (e: Exception) {
-                android.util.Log.e("IMPORT_DEBUG", "ERRO REAL: ${e.message}", e)
+                Log.e("IMPORT_DEBUG", "ERRO AO IMPORTAR: ${e.message}", e)
                 _uiState.value = ImportUiState.Error("Falha ao importar: ${e.message}")
             }
         }
     }
 
     fun resetState() {
-        // CORREÇÃO: Use _uiState.value
         _uiState.value = ImportUiState.Idle
     }
 }

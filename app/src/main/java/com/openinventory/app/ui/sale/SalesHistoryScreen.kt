@@ -42,6 +42,7 @@ fun SalesHistoryScreen(viewModel: OrderViewModel, onBack: () -> Unit) {
     }
     val sales by viewModel.salesHistory.collectAsState()
 
+
     Scaffold(
         containerColor = Color(0xFFF2F4F7),
         topBar = {

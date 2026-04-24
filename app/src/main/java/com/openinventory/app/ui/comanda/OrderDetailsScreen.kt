@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openinventory.app.R
+import ReceiptDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,7 +36,8 @@ fun OrderDetailsScreen(
     val tempItems by viewModel.tempItems.collectAsState()
     val inventoryProducts by viewModel.inventoryProducts.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
-
+    var showReceiptDialog by remember { mutableStateOf(false) }
+    var lastReceiptText by remember { mutableStateOf("") }
     val filteredProducts = remember(searchQuery, inventoryProducts) {
         inventoryProducts.filter { it.description.contains(searchQuery, ignoreCase = true) }
     }
@@ -109,6 +111,16 @@ fun OrderDetailsScreen(
                     }
                 }
             }
+            if (showReceiptDialog) {
+                ReceiptDialog(
+                    receiptText = lastReceiptText,
+                    onConfirm = {
+                        // Lógica para partilhar via Intent
+                        showReceiptDialog = false
+                    },
+                    onDismiss = { showReceiptDialog = false }
+                )
+            }
+        }
         }
     }
-}

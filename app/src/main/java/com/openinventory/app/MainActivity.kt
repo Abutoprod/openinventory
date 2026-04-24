@@ -2,9 +2,11 @@ package com.openinventory.app
 
 import android.os.Bundle
 import android.view.Window
+import androidx.compose.runtime.mutableStateOf
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.remember
+import com.openinventory.app.core.config.CompanyConstants
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -28,6 +30,8 @@ import com.openinventory.app.ui.comanda.OrderViewModelFactory
 import com.openinventory.app.ui.comanda.OrderDetailsScreen
 import com.openinventory.app.ui.comanda.QuickSaleScreen
 import com.openinventory.app.ui.history.SalesHistoryScreen
+import com.google.firebase.Firebase
+import com.google.firebase.firestore.firestore
 
 class MainActivity : ComponentActivity() {
 
@@ -41,6 +45,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val navController = rememberNavController()
 
+            val storeState = remember { mutableStateOf(CompanyConstants.currentStoreId) }
+
             // 1. INICIALIZAÇÃO DO BANCO E REPOSITÓRIOS (Ordem correta)
             val database = remember { AppDatabase.getDatabase(this) }
             val localDataSource = remember { LocalProductDataSource(database.productDao()) }
@@ -51,7 +57,7 @@ class MainActivity : ComponentActivity() {
 
             // 2. FACTORIES
             val productsFactory = ProductViewModelFactory(productRepository)
-            val orderFactory = OrderViewModelFactory(orderRepository, productRepository)
+            val orderFactory = OrderViewModelFactory(orderRepository, productRepository,Firebase.firestore)
 
             // 3. VIEWMODELS COMPARTILHADOS (Criados uma única vez aqui no topo)
             // Isso garante que o 'init' não rode toda hora e economiza Firebase
@@ -66,6 +72,17 @@ class MainActivity : ComponentActivity() {
                     )
 
                     MainMenu(
+                        currentStore = storeState.value, // Passa o nome (MATRIZ/BAURU)
+                        onStoreChange = { novaLoja ->
+                            storeState.value = novaLoja
+                            CompanyConstants.currentStoreId = novaLoja
+
+                            // Atualiza as comandas (Firebase Direct)
+                            sharedOrderViewModel.observeFirebaseOrders(novaLoja)
+
+                            // Atualiza os produtos (Sync Room -> Firebase)
+                            sharedProductViewModel.refreshFromFirebase()
+                        },
                         onNavigateToScan = { navController.navigate("dashboard") },
                         onNavigateToStock = { navController.navigate("stock") },
                         onNavigateToSales = { navController.navigate("comandas") },

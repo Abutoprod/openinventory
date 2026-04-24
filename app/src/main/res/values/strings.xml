@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">openinventory</string>
+    <!-- STRINGS PARA MUDAR AS TABELA DAS FILIAIS -->
+    <string name="products">products</string>
+    <string name="customers">customers</string>
+    <string name="daily_stats">daily_stats</string>
+    <string name="orders">orders</string>
+    <string name="sales">sales</string>
 </resources>
