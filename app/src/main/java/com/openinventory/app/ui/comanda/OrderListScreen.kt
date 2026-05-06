@@ -48,8 +48,12 @@ fun OrderListScreen(
     var showDialog by remember { mutableStateOf(false) }
     var newCustomerName by remember { mutableStateOf("") }
 
-    LaunchedEffect(Unit) {
+    /*LaunchedEffect(Unit) {
         viewModel.observeFirebaseOrders(CompanyConstants.currentStoreId)
+    }*/
+
+    LaunchedEffect(Unit) {
+        viewModel.refreshData()
     }
 
     Scaffold(

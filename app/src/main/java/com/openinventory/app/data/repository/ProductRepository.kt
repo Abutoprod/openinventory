@@ -74,6 +74,7 @@ class ProductRepository(
                 val productsWithStore = productsFromFile.map { it.copy(storeId = storeId) }
 
                 // Em vez de limpar o catálogo, apenas salva os novos/atualizados
+                refreshInventoryCatalog(productsWithStore, storeId)
                 localProductDataSource.saveProducts(productsWithStore) // Salva no Room local
 
                 // Push para o Firebase
@@ -129,4 +130,5 @@ class ProductRepository(
     fun getAllProducts(): Flow<List<ProductEntity>> {
         return localProductDataSource.getAllProducts()
     }
+
 }

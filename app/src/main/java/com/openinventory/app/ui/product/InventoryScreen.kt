@@ -31,6 +31,9 @@ import com.openinventory.app.ui.viewmodel.ProductViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventoryScreen(viewModel: ProductViewModel) {
+    LaunchedEffect(Unit) {
+        viewModel.refreshStoreFilter()
+    }
     val products by viewModel.products.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }

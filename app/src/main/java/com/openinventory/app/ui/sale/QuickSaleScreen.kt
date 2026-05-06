@@ -32,7 +32,9 @@ fun QuickSaleScreen(viewModel: OrderViewModel, onBack: () -> Unit) {
     val tempItems by viewModel.tempItems.collectAsState()
     val inventoryProducts by viewModel.inventoryProducts.collectAsState()
     val context = LocalContext.current
-
+    LaunchedEffect(Unit) {
+        viewModel.refreshData()
+    }
     var showReceiptDialog by remember { mutableStateOf(false) }
     var lastReceiptText by remember { mutableStateOf("") }
     var searchQuery by remember { mutableStateOf("") }

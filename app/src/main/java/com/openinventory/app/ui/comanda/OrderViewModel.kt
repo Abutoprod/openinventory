@@ -9,6 +9,7 @@ import com.google.firebase.firestore.FieldValue
 import  kotlinx.coroutines.flow.combine
 import java.util.Date
 import com.openinventory.app.ui.sale.SaleModel
+import kotlinx.coroutines.flow.flatMapLatest
 import com.google.firebase.firestore.Query
 import android.util.Log
 import com.openinventory.app.core.config.CompanyConstants
@@ -40,7 +41,9 @@ class OrderViewModel(
     private val _availableCustomers = MutableStateFlow<List<String>>(emptyList())
     val availableCustomers: StateFlow<List<String>> = _availableCustomers.asStateFlow()
     private var salesListener: ListenerRegistration? = null
+    private val _inventoryProducts = MutableStateFlow<List<ProductEntity>>(emptyList())
     private var ordersListener: ListenerRegistration? = null
+
     private val _tempItems = MutableStateFlow<List<Triple<String, String, Double>>>(emptyList())
     val tempItems: StateFlow<List<Triple<String, String, Double>>> = _tempItems.asStateFlow()
 
@@ -56,7 +59,18 @@ class OrderViewModel(
     var quickSaleCustomerCpf by mutableStateOf("")
 
     // Fluxo de produtos do estoque vindo do Room
-    val inventoryProducts: StateFlow<List<ProductEntity>> = productRepository.getAllProducts()
+    // Localize esta linha em OrderViewModel.kt[cite: 11]
+
+    // Mude para buscar apenas da filial atual:
+    // 1. O "Gatilho": Sempre que esse valor mudar, a lista de produtos se atualiza sozinha
+    private val _currentStoreFilter = MutableStateFlow(CompanyConstants.currentStoreId)
+
+    // 2. A Lista Reativa: Ela observa o gatilho. Se o gatilho mudar, ela busca no Room de novo.
+    val inventoryProducts: StateFlow<List<ProductEntity>> = _currentStoreFilter
+        .flatMapLatest { storeId ->
+            Log.d("PDV_REFRESH", "Buscando produtos no banco local para: $storeId")
+            productRepository.getProductsByStore(storeId)
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -64,8 +78,19 @@ class OrderViewModel(
         )
 
     init {
-        observeFirebaseOrders(CompanyConstants.currentStoreId)
+        // Agora o init apenas inicia a escuta inicial
+        refreshData()
     }
+
+    // 3. A Função Mágica: Chame isso sempre que abrir a tela de PDV
+    fun refreshData() {
+        val store = CompanyConstants.currentStoreId
+        _currentStoreFilter.value = store // Isso dispara o flatMapLatest acima
+        observeFirebaseOrders(store)
+        loadHistoryIfNeeded() // Opcional: atualiza o histórico também
+        Log.e("estou_vendo", "Filtro atualizado para: $store")
+    }
+
 
     fun loadHistoryIfNeeded() {
         // Cancela listeners antigos para não duplicar dados ou filtrar errado ao trocar de filial

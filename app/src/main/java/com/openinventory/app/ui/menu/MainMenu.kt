@@ -137,6 +137,8 @@ fun MainMenu(
                                 text = { Text("MATRIZ") },
                                 leadingIcon = { Icon(Icons.Default.LocationOn, null) },
                                 onClick = {
+                                    CompanyConstants.currentStoreId = "MATRIZ"
+                                    println("LOG_TESTE: Agora a loja no arquivo é: ${CompanyConstants.currentStoreId}")
                                     onStoreChange("MATRIZ")
                                     showStoreMenu = false
                                 }
@@ -145,6 +147,8 @@ fun MainMenu(
                                 text = { Text("BAURU") },
                                 leadingIcon = { Icon(Icons.Default.LocationOn, null) },
                                 onClick = {
+                                    CompanyConstants.currentStoreId = "BAURU"
+                                    println("LOG_TESTE: Agora a loja no arquivo é: ${CompanyConstants.currentStoreId}")
                                     onStoreChange("BAURU")
                                     showStoreMenu = false
                                 }

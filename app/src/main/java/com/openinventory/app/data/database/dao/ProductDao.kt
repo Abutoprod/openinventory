@@ -9,18 +9,33 @@ interface ProductDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProducts(products: List<ProductEntity>)
 
-    // Adicione esta função para filtrar por loja
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(product: ProductEntity)
+
+    // Certifique-se que na sua classe ProductEntity o campo chama 'code'
+    @Query("SELECT * FROM products WHERE code = :barcode LIMIT 1")
+    suspend fun findByBarcode(barcode: String): ProductEntity?
+
     @Query("SELECT * FROM products WHERE storeId = :storeId")
     fun getProductsByStore(storeId: String): Flow<List<ProductEntity>>
 
-    // Adicione esta função para limpar apenas uma loja[cite: 7]
     @Query("DELETE FROM products WHERE storeId = :storeId")
     suspend fun clearProductsByStore(storeId: String)
 
-    @Query("SELECT * FROM products WHERE code = :barcode LIMIT 1")
-    suspend fun findByBarcode(barcode: String): ProductEntity?
-    @Query("SELECT * FROM products ORDER BY description ASC")
+    @Query("SELECT * FROM products")
     fun getAllProducts(): Flow<List<ProductEntity>>
+
+    @Query("DELETE FROM products")
+    suspend fun clearTable()
+
+    // --- NOVO: Para atualizar o estoque diretamente (Sync com Firebase) ---
     @Query("UPDATE products SET quantity = :qty WHERE code = :sku")
     suspend fun updateQuantity(sku: String, qty: Int)
+
+    @Query("""
+    UPDATE products 
+    SET quantity = quantity - :sellQty 
+    WHERE code IN (SELECT childSku FROM product_bundle WHERE parentSku = :barcode)
+""")
+    suspend fun decreaseBundleStock(barcode: String, sellQty: Int)
 }
