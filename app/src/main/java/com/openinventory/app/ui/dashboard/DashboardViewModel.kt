@@ -60,35 +60,5 @@ class DashboardViewModel : ViewModel() {
             }
         }
     }
-   /* private fun observeDailyStats() {
-        val dateId = SimpleDateFormat("yyyy_MM_dd", Locale.getDefault()).format(Date())
-        val statsRef = db.collection("daily_stats").document(dateId)
-        statsRef.whereEqualTo("storeId", storeId)
-        // 1. Escuta o faturamento e lucro total do dia
-        statsRef.addSnapshotListener { snapshot, _ ->
-            if (snapshot != null && snapshot.exists()) {
-                _uiState.update { it.copy(
-                    totalRevenue = snapshot.getDouble("totalRevenue") ?: 0.0,
-                    totalProfit = snapshot.getDouble("totalProfit") ?: 0.0,
-                    salesCount = snapshot.getLong("count")?.toInt() ?: 0
-                )}
-            }
-        }
 
-        // 2. Escuta a subcoleção de produtos para o gráfico (Valor Agregado)
-        statsRef.collection("top_products")
-            .orderBy("totalRevenue", Query.Direction.DESCENDING)
-            .limit(10)
-            .addSnapshotListener { snapshot, _ ->
-                val products = snapshot?.map { doc ->
-                    ProductStats(
-                        name = doc.getString("name") ?: "Desconhecido",
-                        quantity = doc.getLong("quantity")?.toInt() ?: 0,
-                        revenue = doc.getDouble("totalRevenue") ?: 0.0
-                    )
-                } ?: emptyList()
-
-                _uiState.update { it.copy(topProducts = products) }
-            }
-    }*/
 }

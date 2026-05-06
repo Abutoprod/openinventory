@@ -14,9 +14,10 @@ import kotlinx.coroutines.Dispatchers
 
 class ProductViewModel(private val repository: ProductRepository) : ViewModel() {
 
-    // 1. Expõe os produtos do Room como um StateFlow reativo
-    // O 'stateIn' converte o Flow do Room em um estado que o Compose entende
-    val products: StateFlow<List<ProductEntity>> = repository.getAllProducts()
+    private val currentStore = CompanyConstants.currentStoreId
+
+    // Agora o fluxo de dados observa apenas os produtos da loja atual[cite: 6, 8]
+    val products: StateFlow<List<ProductEntity>> = repository.getProductsByStore(currentStore)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -24,10 +25,8 @@ class ProductViewModel(private val repository: ProductRepository) : ViewModel() 
         )
 
     init {
-        // 2. Sempre que a ViewModel nasce (abriu a tela), tenta sincronizar a filial atual
         refreshFromFirebase()
     }
-
     fun refreshFromFirebase() {
         viewModelScope.launch {
             try {

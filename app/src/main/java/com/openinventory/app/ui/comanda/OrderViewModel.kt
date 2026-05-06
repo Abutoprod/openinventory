@@ -169,22 +169,6 @@ class OrderViewModel(
             }
     }
 
-   /* private fun observeCustomers() {
-        db.collection("customers")
-            .addSnapshotListener { snapshot, _ ->
-                val names = snapshot?.documents?.mapNotNull { it.getString("name") } ?: emptyList()
-                _availableCustomers.value = names.sorted()
-            }
-    }*/
-  /*  fun refreshCustomers() {
-        db.collection("customers")
-            .get() // Troquei addSnapshotListener por get()
-            .addOnSuccessListener { snapshot ->
-                val names = snapshot.documents.mapNotNull { it.getString("name") }
-                _availableCustomers.value = names.sorted()
-            }
-    }*/
-
     // --- GERENCIAMENTO DE ITENS (CARRINHO TEMPORÁRIO) ---
 
     fun addToTempList(code: String, name: String, price: Double) {
@@ -300,7 +284,11 @@ class OrderViewModel(
 
     fun finishOrderWithReceipt(order: OrderEntity, onComplete: (String) -> Unit) {
         val dateId = java.text.SimpleDateFormat("yyyy_MM_dd", java.util.Locale.getDefault()).format(java.util.Date())
-        val statsRef = db.collection("daily_stats").document(dateId)
+        val currentStore = CompanyConstants.currentStoreId // Pega a loja atual
+
+        // CRITICAL: Usa o mesmo padrão de ID da Venda Rápida
+        val statsDocId = "${dateId}_$currentStore"
+        val statsRef = db.collection("daily_stats").document(statsDocId)
         val orderRef = db.collection("orders").document(order.orderId)
 
         // Cálculo do lucro real da comanda
@@ -312,24 +300,24 @@ class OrderViewModel(
 
         db.runTransaction { transaction ->
             val statsSnap = transaction.get(statsRef)
-            // --- 0.5 PARA SALVAR OS ITENS NA COMANDA ---
+
+            // 0.5 PARA SALVAR OS ITENS NA COMANDA (Para o histórico)
             val summary = _confirmedItems.value.map {
                 mapOf("name" to it.first, "price" to it.second)
             }
             transaction.update(orderRef, "itemsSummary", summary)
-            // ----------------------------------------------------------
 
-            // 1. Atualizar cada produto da comanda nas estatísticas (Valor Agregado)
+            // 1. Atualizar Ranking de Produtos (Top Products)
             _confirmedItems.value.forEach { (name, price) ->
                 val product = inventoryProducts.value.find { it.description == name }
-                val productId = product?.code ?: name
+                val productName = product?.description ?: name
 
-                val topProductRef = statsRef.collection("top_products").document(productId)
+                val topProductRef = statsRef.collection("top_products").document(productName)
                 transaction.set(topProductRef,
                     mapOf(
                         "name" to name,
                         "quantity" to FieldValue.increment(1),
-                        "totalRevenue" to FieldValue.increment(price) // Importante para o gráfico de pizza
+                        "totalRevenue" to FieldValue.increment(price)
                     ),
                     com.google.firebase.firestore.SetOptions.merge()
                 )
@@ -338,19 +326,23 @@ class OrderViewModel(
             // 2. Fechar a comanda
             transaction.update(orderRef, "status", "FINISHED", "closedAt", FieldValue.serverTimestamp())
 
-            // 3. Atualizar Dashboard
+            // 3. Atualizar Dashboard (IGUAL À VENDA RÁPIDA)
             val saleTotal = order.totalAmount
             if (!statsSnap.exists()) {
                 transaction.set(statsRef, hashMapOf(
                     "totalRevenue" to saleTotal,
                     "totalProfit" to totalProfit,
-                    "count" to 1
+                    "count" to 1,
+                    "storeId" to currentStore, // ADICIONADO PARA O FILTRO
+                    "dateId" to dateId         // ADICIONADO PARA O FILTRO
                 ))
             } else {
                 transaction.update(statsRef,
                     "totalRevenue", FieldValue.increment(saleTotal),
                     "totalProfit", FieldValue.increment(totalProfit),
-                    "count", FieldValue.increment(1)
+                    "count", FieldValue.increment(1),
+                    "storeId", currentStore, // GARANTE QUE O CAMPO EXISTE
+                    "dateId", dateId         // GARANTE QUE O CAMPO EXISTE
                 )
             }
             null

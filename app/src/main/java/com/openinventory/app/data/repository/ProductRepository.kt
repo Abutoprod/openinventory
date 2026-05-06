@@ -24,7 +24,6 @@ class ProductRepository(
     // --- SINCRONIZAÇÃO FIREBASE FILTRADA POR LOJA ---
     suspend fun syncWithFirebase(storeId: String) {
         try {
-            // Baixa apenas os produtos vinculados à filial atual
             val snapshot = firestore.collection("products")
                 .whereEqualTo("storeId", storeId)
                 .get()
@@ -32,8 +31,8 @@ class ProductRepository(
 
             val productsFromFirebase = snapshot.toObjects(ProductEntity::class.java)
 
-            // Limpa o banco local e substitui pelo estoque da filial selecionada
-            refreshInventoryCatalog(productsFromFirebase)
+            // Agora passamos o storeId para garantir que a limpeza local seja cirúrgica[cite: 8]
+            refreshInventoryCatalog(productsFromFirebase, storeId)
             Log.d("SYNC_DEBUG", "Sincronizado: ${productsFromFirebase.size} itens da filial $storeId")
 
         } catch (e: Exception) {
@@ -59,9 +58,10 @@ class ProductRepository(
     }
 
     // --- GERENCIAMENTO DE CATÁLOGO LOCAL ---
-    suspend fun refreshInventoryCatalog(products: List<ProductEntity>) {
+    suspend fun refreshInventoryCatalog(products: List<ProductEntity>, storeId: String) {
         database.withTransaction {
-            localProductDataSource.deleteAll()
+            // Agora o compilador encontrará esta função no DataSource
+            localProductDataSource.clearProductsByStore(storeId)
             localProductDataSource.saveProducts(products)
         }
     }
@@ -71,19 +71,17 @@ class ProductRepository(
         try {
             val productsFromFile = fileDataSource.parseCsv(uri)
             if (productsFromFile.isNotEmpty()) {
-                // Mapeia os produtos para incluírem o storeId da filial atual
                 val productsWithStore = productsFromFile.map { it.copy(storeId = storeId) }
 
-                // 1. Salva no banco local (Room)
-                refreshInventoryCatalog(productsWithStore)
+                // Em vez de limpar o catálogo, apenas salva os novos/atualizados
+                localProductDataSource.saveProducts(productsWithStore) // Salva no Room local
 
-                // 2. Push para o Firebase
+                // Push para o Firebase
                 uploadToFirebase(productsWithStore, storeId)
 
                 productsWithStore.size
             } else 0
         } catch (e: Exception) {
-            Log.e("IMPORT_DEBUG", "Erro no CSV: ${e.message}")
             0
         }
     }
@@ -124,5 +122,11 @@ class ProductRepository(
     }
 
     // --- LEITURA REATIVA ---
-    fun getAllProducts(): Flow<List<ProductEntity>> = localProductDataSource.getAllProducts()
+    // Agora ele só traz o que for da loja que você quer ver
+    fun getProductsByStore(storeId: String): Flow<List<ProductEntity>> {
+        return localProductDataSource.getProductsByStore(storeId)
+    }
+    fun getAllProducts(): Flow<List<ProductEntity>> {
+        return localProductDataSource.getAllProducts()
+    }
 }
