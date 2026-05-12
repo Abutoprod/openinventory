@@ -1,140 +1,135 @@
 package com.openinventory.app
 
 import android.os.Bundle
-import android.view.Window
-import androidx.compose.runtime.mutableStateOf
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.remember
-import com.openinventory.app.core.config.CompanyConstants
+import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.openinventory.app.data.database.AppDatabase
-import com.openinventory.app.data.datasource.local.FileDataSource
-import com.openinventory.app.data.datasource.local.LocalProductDataSource
+import com.openinventory.app.core.config.CompanyConstants
+import com.openinventory.app.core.config.RetrofitClient
 import com.openinventory.app.data.repository.ProductRepository
-import com.openinventory.app.data.repository.OrderRepository
-import com.openinventory.app.ui.import.ImportViewModel
-import com.openinventory.app.ui.import.ImportViewModelFactory
 import com.openinventory.app.ui.menu.MainMenu
 import com.openinventory.app.ui.product.InventoryScreen
 import com.openinventory.app.ui.viewmodel.ProductViewModel
 import com.openinventory.app.ui.viewmodel.ProductViewModelFactory
-import com.openinventory.app.ui.dashboard.DashboardViewModel
+import com.openinventory.app.ui.login.LoginScreen
 import com.openinventory.app.ui.dashboard.DashboardScreen
-import com.openinventory.app.ui.comanda.OrderListScreen
-import com.openinventory.app.ui.comanda.OrderViewModel
-import com.openinventory.app.ui.comanda.OrderViewModelFactory
-import com.openinventory.app.ui.comanda.OrderDetailsScreen
-import com.openinventory.app.ui.comanda.QuickSaleScreen
-import com.openinventory.app.ui.history.SalesHistoryScreen
-import com.google.firebase.Firebase
-import com.google.firebase.firestore.firestore
+// Novos Imports para Comandas
+import com.openinventory.app.ui.comanda.ComandaScreen
+import com.openinventory.app.ui.comanda.ComandaViewModel
+import com.openinventory.app.data.repository.ComandaRepository
+import com.openinventory.app.ui.sale.VendaRapidaViewModel
+import com.openinventory.app.ui.sale.VendaRapidaScreen
+import com.openinventory.app.data.repository.DashboardRepository
+import com.openinventory.app.ui.dashboard.DashboardViewModel
+import com.openinventory.app.ui.eventos.CadastroEventoScreen
+import com.openinventory.app.ui.eventos.EventoViewModel
+import com.openinventory.app.data.repository.EventoRepository
 
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Mata a barra de título nativa (aquela bosta preta)
-        requestWindowFeature(Window.FEATURE_NO_TITLE)
-        actionBar?.hide()
+        val apiService = RetrofitClient.instance
+        val productRepository = ProductRepository(apiService)
 
         setContent {
             val navController = rememberNavController()
+            var currentStore by remember { mutableStateOf(CompanyConstants.currentStoreId) }
 
-            val storeState = remember { mutableStateOf(CompanyConstants.currentStoreId) }
+            // 1. Inicializa o ViewModel do Estoque (Shared)
+            val sharedProductViewModel: ProductViewModel = viewModel(
+                factory = ProductViewModelFactory(productRepository)
+            )
 
-            // 1. INICIALIZAÇÃO DO BANCO E REPOSITÓRIOS (Ordem correta)
-            val database = remember { AppDatabase.getDatabase(this) }
-            val localDataSource = remember { LocalProductDataSource(database.productDao()) }
-            val fileDataSource = remember { FileDataSource(applicationContext) }
+            // 2. Inicializa o ViewModel das Comandas (Shared)
+            // Declarado aqui em cima para ser visível em todo o NavHost
+            val comandaRepository = ComandaRepository(apiService)
+            val comandaViewModel = ComandaViewModel(comandaRepository)
+            val vendaRapidaViewModel = VendaRapidaViewModel(comandaRepository)
+            val dashboardRepository = DashboardRepository(apiService) // NOVO
+            val dashboardViewModel = DashboardViewModel(dashboardRepository) // NOVO
+            val eventoRepository = EventoRepository(apiService)
+            val eventoViewModel = EventoViewModel(eventoRepository)
 
-            val productRepository = remember { ProductRepository(localDataSource, fileDataSource, database) }
-            val orderRepository = remember { OrderRepository(database.orderDao()) }
+            NavHost(navController = navController, startDestination = "login") {
 
-            // 2. FACTORIES
-            val productsFactory = ProductViewModelFactory(productRepository)
-            val orderFactory = OrderViewModelFactory(orderRepository, productRepository,Firebase.firestore)
-
-            // 3. VIEWMODELS COMPARTILHADOS (Criados uma única vez aqui no topo)
-            // Isso garante que o 'init' não rode toda hora e economiza Firebase
-            val sharedOrderViewModel: OrderViewModel = viewModel(factory = orderFactory)
-            val sharedProductViewModel: ProductViewModel = viewModel(factory = productsFactory)
-
-            NavHost(navController = navController, startDestination = "main_menu") {
-
-                composable("main_menu") {
-                    val importViewModel: ImportViewModel = viewModel(
-                        factory = ImportViewModelFactory(productRepository)
-                    )
-
-                    MainMenu(
-                        currentStore = storeState.value, // Passa o nome (MATRIZ/BAURU)
-                        onStoreChange = { novaLoja ->
-                            storeState.value = novaLoja
-                            CompanyConstants.currentStoreId = novaLoja
-
-                            // Atualiza as comandas (Firebase Direct)
-                            sharedOrderViewModel.observeFirebaseOrders(novaLoja)
-
-                            // Atualiza os produtos (Sync Room -> Firebase)
-                            sharedProductViewModel.refreshFromFirebase()
-                        },
-                        onNavigateToScan = { navController.navigate("dashboard") },
-                        onNavigateToStock = { navController.navigate("stock") },
-                        onNavigateToSales = { navController.navigate("comandas") },
-                        onNavigateToKits = { navController.navigate("pdv_rapido") },
-                        onNavigateToHistory = { navController.navigate("history") },
-                        importViewModel = importViewModel
-                    )
-                }
-
-                composable("dashboard") {
-                    val dashboardViewModel: DashboardViewModel = viewModel()
-                    DashboardScreen(
-                        viewModel = dashboardViewModel,
-                        onBack = { navController.popBackStack() }
-                    )
-                }
-
-                composable("comandas") {
-                    OrderListScreen(
-                        viewModel = sharedOrderViewModel,
-                        onOrderClick = { order ->
-                            navController.navigate("order_details/${order.orderId}/${order.customerName}")
+                composable("login") {
+                    LoginScreen(
+                        onNavigateToMenu = {
+                            navController.navigate("main_menu") {
+                                popUpTo("login") { inclusive = true }
+                            }
                         }
                     )
                 }
 
-                composable("order_details/{orderId}/{customerName}") {
-                    OrderDetailsScreen(
-                        orderId = it.arguments?.getString("orderId") ?: "",
-                        customerName = it.arguments?.getString("customerName") ?: "",
-                        viewModel = sharedOrderViewModel,
+                composable("main_menu") {
+                    MainMenu(
+                        onNavigateToDashboard = { navController.navigate("dashboard") },
+                        onNavigateToComandas = { navController.navigate("comandas") },
+                        onNavigateToStock = { navController.navigate("stock") },
+                        onNavigateToHEvent = { navController.navigate("eventos")},
+                        onNavigateToPdv = { navController.navigate("venda_rapida") },
+                        currentStore = currentStore,
+                        onStoreChange = { newStore ->
+                            currentStore = newStore
+                            sharedProductViewModel.updateStore(newStore)
+                        }
+                    )
+                }
+
+                composable("dashboard") {
+                    // Chamamos a nova tela passando o ID da filial selecionada
+                    DashboardScreen(
+                        viewModel = dashboardViewModel,
+                        filialId = currentStore.toLongOrNull() ?: 0L
+                    )
+                }
+                // NOVO: Rota para Cadastro de Eventos
+                composable("eventos") {
+                    val filialId = currentStore.toLongOrNull() ?: 0L
+                    CadastroEventoScreen(
+                        viewModel = eventoViewModel,
+                        filialId = filialId,
                         onBack = { navController.popBackStack() }
+                    )
+                }
+                composable("comandas") {
+                    ComandaScreen(
+                        viewModel = comandaViewModel,
+                        currentStoreId = currentStore
+                    )
+                }
+                composable("venda_rapida") {
+                    val filialId = currentStore.toLongOrNull() ?: 0L
+
+                    // Dispara o carregamento assim que a rota é acessada
+                    LaunchedEffect(filialId) {
+                        vendaRapidaViewModel.carregarProdutos(filialId)
+                    }
+
+                    val produtosLoja by vendaRapidaViewModel.produtosLoja.collectAsState()
+                    val isLoading by vendaRapidaViewModel.isLoading.collectAsState()
+
+                    VendaRapidaScreen(
+                        viewModel = vendaRapidaViewModel,
+                        filialId = filialId,
+                        produtosLoja = produtosLoja // Agora vem do próprio ViewModel de venda
                     )
                 }
 
                 composable("stock") {
-                    InventoryScreen(viewModel = sharedProductViewModel)
-                }
-
-                composable("pdv_rapido") {
-                    QuickSaleScreen(
-                        viewModel = sharedOrderViewModel,
-                        onBack = { navController.popBackStack() }
+                    // Passamos o currentStore (ID selecionado no menu) para a tela
+                    InventoryScreen(
+                        viewModel = sharedProductViewModel,
+                        currentStoreId = currentStore
                     )
                 }
 
-                composable("history") {
-                    SalesHistoryScreen(
-                        viewModel = sharedOrderViewModel,
-                        onBack = { navController.popBackStack() }
-                    )
-                }
             }
         }
     }

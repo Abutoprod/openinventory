@@ -1,13 +1,12 @@
 package com.openinventory.app.data.repository
 
 import com.google.firebase.firestore.FirebaseFirestore
-import com.openinventory.app.data.datasource.local.ComandaFirebase
-import com.openinventory.app.data.datasource.local.ItemVenda
+
 import kotlinx.coroutines.channels.awaitClose
 // Importe aqui a sua classe Product do Room
 // import com.openinventory.app.data.entities.Product
 
-class TcgRepository {
+class TcgRepository {/*
     private val db by lazy { FirebaseFirestore.getInstance() }
 
     // 1. Abrir Comanda no Firebase
@@ -66,5 +65,5 @@ class TcgRepository {
                 trySend(docs)
             }
         awaitClose { subscription.remove() }
-    }
+    }*/
 }

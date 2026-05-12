@@ -1,179 +1,130 @@
 package com.openinventory.app.ui.product
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openinventory.app.R
+import com.openinventory.app.service.ProductResponse
+import com.openinventory.app.ui.product.AddProductSheet
 import com.openinventory.app.ui.viewmodel.ProductViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun InventoryScreen(viewModel: ProductViewModel) {
-    LaunchedEffect(Unit) {
-        viewModel.refreshStoreFilter()
-    }
+fun InventoryScreen(viewModel: ProductViewModel, currentStoreId: String) {
+    // Observando os estados do ViewModel
     val products by viewModel.products.collectAsState()
-    var showAddDialog by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("TODOS") }
+    val storeName by viewModel.currentStoreName.collectAsState()
 
-    val categories = listOf("TODOS", "BOOSTER", "EVENTO", "CONSUMIVEL")
+    // Estados para controlar o Modal
+    var showSheet by remember { mutableStateOf(false) }
+    var productToEdit by remember { mutableStateOf<ProductResponse?>(null) }
 
-    val filteredProducts = products.filter { product ->
-        val matchesQuery = product.description.contains(searchQuery, ignoreCase = true) ||
-                product.code.contains(searchQuery, ignoreCase = true)
-        val matchesCategory = selectedCategory == "TODOS" || product.category == selectedCategory
-        matchesQuery && matchesCategory
+    // Sincroniza a filial ao abrir a tela
+    LaunchedEffect(currentStoreId) {
+        viewModel.updateStore(currentStoreId)
     }
 
     Scaffold(
-        containerColor = Color(0xFFF2F4F7),
         topBar = {
-            Box(modifier = Modifier.fillMaxWidth().height(90.dp)) {
-                Image(
-                    painter = painterResource(id = R.drawable.fundo),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-                Box(
-                    modifier = Modifier.fillMaxSize().background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                colorResource(R.color.orange_back).copy(alpha = 0.9f),
-                                colorResource(R.color.yellow_back).copy(alpha = 0.7f)
-                            )
-                        )
-                    )
-                )
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = colorResource(id = R.color.orange_back).copy(alpha = 0.1f),
+                border = BorderStroke(1.dp, colorResource(id = R.color.orange_back).copy(alpha = 0.3f))
+            ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 20.dp),
+                    modifier = Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.2f),
-                        border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.5f))
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.rayeart),
-                            contentDescription = "Logo",
-                            modifier = Modifier.size(48.dp)
-                        )
+                    Icon(Icons.Default.Store, contentDescription = null, tint = colorResource(id = R.color.orange_back))
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text("ESTOQUE ATUAL", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text(storeName, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    // CORREÇÃO: Título com weight e overflow para não empurrar o layout
-                    Text(
-                        text = "RAYEARTH GAMES",
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Black,
-                            color = Color.White,
-                            letterSpacing = 1.sp,
-                            fontSize = 18.sp // Tamanho reduzido para telas menores
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Spacer(Modifier.weight(1f))
+                    IconButton(onClick = { viewModel.refreshData() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Atualizar")
+                    }
                 }
             }
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = colorResource(R.color.yellow_back),
-                contentColor = Color.White,
-                shape = CircleShape
+                onClick = {
+                    productToEdit = null // Garante que é um novo cadastro
+                    showSheet = true
+                },
+                containerColor = colorResource(id = R.color.orange_back),
+                contentColor = Color.White
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Novo Item")
+                Icon(Icons.Default.Add, contentDescription = "Adicionar")
             }
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
+        Box(modifier = Modifier.padding(padding)) {
+            if (products.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Nenhum produto encontrado nesta filial.")
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(products) { product ->
+                        // USAMOS O MODIFIER AQUI PARA O CLIQUE LONGO
+                        ProductItemCard(
+                            product = product,
+                            modifier = Modifier.combinedClickable(
+                                onClick = { /* Clique normal: se quiser abrir algo */ },
+                                onLongClick = {
+                                    productToEdit = product // Define o produto para edição
+                                    showSheet = true // Abre o modal
+                                }
+                            )
+                        )
+                    }
+                }
+            }
 
-            // BARRA DE PESQUISA RESPONSIVA
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                placeholder = { Text("Buscar produto...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                shape = RoundedCornerShape(16.dp),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    unfocusedBorderColor = Color.Transparent
+            // MODAL (AddProductSheet)
+            if (showSheet) {
+                AddProductSheet(
+                    currentStoreId = currentStoreId,
+                    productToEdit = productToEdit, // Passa o produto se for edição, ou null se for novo
+                    onDismiss = {
+                        showSheet = false
+                        productToEdit = null
+                    },
+                    // Dentro de InventoryScreen.kt -> AddProductSheet
+                    onConfirm = { dto ->
+                        val produtoAtual = productToEdit
+                        if (produtoAtual != null) {
+                            // Agora o 'id' existe no ProductResponse!
+                            viewModel.alterarProduto(produtoAtual.id, dto)
+                        } else {
+                            viewModel.salvarProduto(dto)
+                        }
+                        showSheet = false
+                        productToEdit = null
+                    }
                 )
-            )
-
-            // CATEGORIAS RESPONSIVAS
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                categories.forEach { cat ->
-                    FilterChip(
-                        selected = selectedCategory == cat,
-                        onClick = { selectedCategory = cat },
-                        label = { Text(cat, fontSize = 12.sp) },
-                        shape = RoundedCornerShape(20.dp)
-                    )
-                }
             }
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(filteredProducts, key = { it.code }) { product ->
-                    ProductItemCard(
-                        product = product,
-                        onUpdateQty = { newQty -> viewModel.updateStock(product.code, newQty) }
-                    )
-                }
-            }
-        }
-
-        if (showAddDialog) {
-            AddProductDialog(
-                onDismiss = { showAddDialog = false },
-                onConfirm = { newProduct ->
-                    viewModel.saveNewProduct(newProduct)
-                    showAddDialog = false
-                }
-            )
         }
     }
 }

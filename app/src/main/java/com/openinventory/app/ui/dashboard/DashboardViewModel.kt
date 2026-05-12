@@ -1,64 +1,72 @@
 package com.openinventory.app.ui.dashboard
-
 import androidx.lifecycle.ViewModel
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
-import com.google.firebase.firestore.Query
-import com.openinventory.app.core.config.CompanyConstants
+import androidx.lifecycle.viewModelScope
+import com.github.mikephil.charting.data.PieEntry
+import com.openinventory.app.data.repository.DashboardRepository
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import java.text.SimpleDateFormat
+import kotlinx.coroutines.flow.update // <--- ESTE IMPORT É O QUE FAZ O .update FUNCIONAR
+import kotlinx.coroutines.launch
+
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.*
 
-class DashboardViewModel : ViewModel() {
-    private val db = Firebase.firestore
+class DashboardViewModel(private val repository: DashboardRepository) : ViewModel() {
 
-    // Usamos o DashboardState que definimos acima
     private val _uiState = MutableStateFlow(DashboardState())
-    val uiState: StateFlow<DashboardState> = _uiState.asStateFlow()
-    val storeId = CompanyConstants.currentStoreId;
-    init {
-        observeDailyStats()
-    }
-    private fun observeDailyStats() {
-        val dateId = SimpleDateFormat("yyyy_MM_dd", Locale.getDefault()).format(Date())
+    val uiState = _uiState.asStateFlow()
 
-        // 1. Criamos uma Query em vez de uma referência direta ao Documento
-        val statsQuery = db.collection("daily_stats")
-            .whereEqualTo("dateId", dateId) // Certifique-se que o campo existe no documento
-            .whereEqualTo("storeId", storeId)
-            .limit(1)
 
-        // Escuta os dados principais (Faturamento, Lucro, etc)
-        statsQuery.addSnapshotListener { snapshots, _ ->
-            val snapshot = snapshots?.documents?.firstOrNull()
+    fun carregarDados(filialId: Long, dataInicioFiltro: String? = null, dataFimFiltro: String? = null) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                // 1. Busca todas as comandas (como você já faz)
+                val todasComandas = repository.buscarDadosVendas(filialId, "", "")
 
-            if (snapshot != null && snapshot.exists()) {
-                _uiState.update { it.copy(
-                    totalRevenue = snapshot.getDouble("totalRevenue") ?: 0.0,
-                    totalProfit = snapshot.getDouble("totalProfit") ?: 0.0,
-                    salesCount = snapshot.getLong("count")?.toInt() ?: 0
-                )}
+                // 2. Filtra localmente por data se o usuário escolheu um período
+                val comandasFiltradas = if (!dataInicioFiltro.isNullOrBlank() && !dataFimFiltro.isNullOrBlank()) {
+                    val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
+                    val inicio = LocalDateTime.parse("${dataInicioFiltro}T00:00:00")
+                    val fim = LocalDateTime.parse("${dataFimFiltro}T23:59:59")
 
-                // 2. Escuta a subcoleção de produtos baseada no documento encontrado
-                snapshot.reference.collection("top_products")
-                    .orderBy("totalRevenue", Query.Direction.DESCENDING)
-                    .limit(10)
-                    .addSnapshotListener { productSnapshots, _ ->
-                        val products = productSnapshots?.map { doc ->
-                            ProductStats(
-                                name = doc.getString("name") ?: "Desconhecido",
-                                quantity = doc.getLong("quantity")?.toInt() ?: 0,
-                                revenue = doc.getDouble("totalRevenue") ?: 0.0
-                            )
-                        } ?: emptyList()
-
-                        _uiState.update { it.copy(topProducts = products) }
+                    todasComandas.filter { comanda ->
+                        val dataComanda = LocalDateTime.parse(comanda.dataAbertura, formatter)
+                        !dataComanda.isBefore(inicio) && !dataComanda.isAfter(fim)
                     }
+                } else {
+                    todasComandas
+                }
+
+                // 3. Processa os cálculos em cima da lista filtrada
+                var faturamento = 0.0
+                var custoVendas = 0.0
+                val produtosMap = mutableMapOf<String, Float>()
+
+                comandasFiltradas.forEach { comanda ->
+                    if (!comanda.aberta) {
+                        faturamento += comanda.valorTotal
+                        comanda.itens.forEach { item ->
+                            custoVendas += (item.precoCompra.toDouble() * item.quantidade)
+                            val atual = produtosMap.getOrDefault(item.produtoNome, 0f)
+                            produtosMap[item.produtoNome] = atual + item.quantidade
+                        }
+                    }
+                }
+
+                _uiState.update {
+                    it.copy(
+                        totalRecebido = faturamento,
+                        totalCusto = custoVendas,
+                        lucro = faturamento - custoVendas,
+                        itensPizza = produtosMap.map { entry -> PieEntry(entry.value, entry.key) },
+                        isLoading = false
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false) }
             }
         }
     }
-
 }

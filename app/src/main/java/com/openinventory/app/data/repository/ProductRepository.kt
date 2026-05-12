@@ -1,134 +1,68 @@
 package com.openinventory.app.data.repository
 
-import android.net.Uri
 import android.util.Log
-import androidx.room.withTransaction
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
-import com.openinventory.app.data.database.AppDatabase
-import com.openinventory.app.data.database.entity.ProductEntity
-import com.openinventory.app.data.datasource.local.FileDataSource
-import com.openinventory.app.data.datasource.local.LocalProductDataSource
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
+import com.openinventory.app.core.config.TokenManager
+import com.openinventory.app.service.FilialResponse
+import com.openinventory.app.service.ProductResponse
+import com.openinventory.app.service.RayearthApiService
+import com.openinventory.app.service.ProductDTO
 
-class ProductRepository(
-    private val localProductDataSource: LocalProductDataSource,
-    private val fileDataSource: FileDataSource,
-    private val database: AppDatabase
-) {
-    private val firestore by lazy { FirebaseFirestore.getInstance() }
+class ProductRepository(private val apiService: RayearthApiService) {
 
-    // --- SINCRONIZAÇÃO FIREBASE FILTRADA POR LOJA ---
-    suspend fun syncWithFirebase(storeId: String) {
-        try {
-            val snapshot = firestore.collection("products")
-                .whereEqualTo("storeId", storeId)
-                .get()
-                .await()
+    // Dentro do seu ProductRepository.kt
+    suspend fun getProductsByStore(storeId: String): List<ProductResponse> {
+        return try {
+            // 1. Pega o token já com "Bearer "
+            val tokenFormatado = TokenManager.getBearerToken()
 
-            val productsFromFirebase = snapshot.toObjects(ProductEntity::class.java)
+            // 2. Passa direto para a API sem mexer na String
+            val response = apiService.getProdutosPorFilial(
+              //  token = tokenFormatado,
+                filialId = storeId
+            )
 
-            // Agora passamos o storeId para garantir que a limpeza local seja cirúrgica[cite: 8]
-            refreshInventoryCatalog(productsFromFirebase, storeId)
-            Log.d("SYNC_DEBUG", "Sincronizado: ${productsFromFirebase.size} itens da filial $storeId")
-
+            if (response.isSuccessful) {
+                response.body() ?: emptyList()
+            } else {
+                android.util.Log.e("DEBUG_API", "Erro: ${response.code()}")
+                emptyList()
+            }
         } catch (e: Exception) {
-            Log.e("SYNC_DEBUG", "Erro ao sincronizar filial $storeId: ${e.message}")
+            emptyList()
         }
     }
 
-    suspend fun findByBarcode(barcode: String): ProductEntity? {
-        return localProductDataSource.findByBarcode(barcode)
-    }
+    // No ProductRepository.kt
+    suspend fun salvarProduto(novoProduto: ProductDTO): Boolean {
+        return try {
+            val token = TokenManager.getBearerToken()
+            // Agora o nome 'produto' casa com a interface acima
+            val response = apiService.postProdutosPorFilial(
+                token = token,
+                produto = novoProduto
+            )
 
-    // --- ATUALIZAÇÃO DE ESTOQUE (BILATERAL) ---
-    suspend fun updateProductQuantity(sku: String, newQuantity: Int, storeId: String) {
-        // 1. Atualiza Local (Room)
-        localProductDataSource.updateQuantity(sku, newQuantity)
+            if (!response.isSuccessful) {
+                Log.e("DEBUG_API", "Erro ao salvar: ${response.code()} - ${response.errorBody()?.string()}")
+            }
 
-        // 2. Atualiza Remoto (Firebase)
-        // O ID do documento é composto para permitir o mesmo EAN em lojas diferentes com estoques diferentes
-        val docId = "${storeId}_$sku"
-        firestore.collection("products").document(docId)
-            .update("quantity", newQuantity)
-            .addOnFailureListener { Log.e("FIREBASE_ERROR", "Falha ao subir atualização para $sku na loja $storeId") }
-    }
-
-    // --- GERENCIAMENTO DE CATÁLOGO LOCAL ---
-    suspend fun refreshInventoryCatalog(products: List<ProductEntity>, storeId: String) {
-        database.withTransaction {
-            // Agora o compilador encontrará esta função no DataSource
-            localProductDataSource.clearProductsByStore(storeId)
-            localProductDataSource.saveProducts(products)
-        }
-    }
-
-    // --- IMPORTAÇÃO CSV COM VINCULO DE LOJA ---
-    suspend fun importCsv(uri: Uri, storeId: String): Int = withContext(Dispatchers.IO) {
-        try {
-            val productsFromFile = fileDataSource.parseCsv(uri)
-            if (productsFromFile.isNotEmpty()) {
-                val productsWithStore = productsFromFile.map { it.copy(storeId = storeId) }
-
-                // Em vez de limpar o catálogo, apenas salva os novos/atualizados
-                refreshInventoryCatalog(productsWithStore, storeId)
-                localProductDataSource.saveProducts(productsWithStore) // Salva no Room local
-
-                // Push para o Firebase
-                uploadToFirebase(productsWithStore, storeId)
-
-                productsWithStore.size
-            } else 0
+            response.isSuccessful
         } catch (e: Exception) {
-            0
+            Log.e("DEBUG_API", "Falha catastrófica: ${e.message}")
+            false
         }
     }
 
-    // --- PUSH EM LOTE (BATCH) ---
-    private fun uploadToFirebase(products: List<ProductEntity>, storeId: String) {
-        val batch = firestore.batch()
-
-        products.forEach { product ->
-            // ID Único: loja + código (Ex: MATRIZ_789123)
-            val docId = "${storeId}_${product.code}"
-            val docRef = firestore.collection("products").document(docId)
-
-            // Garante que o objeto tenha o storeId antes de subir
-            val productToUpload = product.copy(storeId = storeId)
-            batch.set(docRef, productToUpload, SetOptions.merge())
-        }
-
-        batch.commit()
-            .addOnSuccessListener { Log.d("FIREBASE_DEBUG", "Batch enviado para $storeId com sucesso!") }
-            .addOnFailureListener { e -> Log.e("FIREBASE_DEBUG", "Erro no Batch $storeId: ${e.message}") }
+    suspend fun atualizarProduto(id: Long, dto: ProductDTO): Boolean {
+        return try {
+            val token = TokenManager.getBearerToken()
+            val response = apiService.atualizarProduto(token, id, dto)
+            response.isSuccessful
+        } catch (e: Exception) { false }
     }
-
-    // --- INSERÇÃO INDIVIDUAL ---
-    suspend fun insertProduct(product: ProductEntity, storeId: String) {
-        val productWithStore = product.copy(storeId = storeId)
-
-        // 1. Salva no Room (Local)
-        localProductDataSource.insert(productWithStore)
-
-        // 2. Sobe para o Firebase (Remoto)
-        val docId = "${storeId}_${product.code}"
-        val docRef = firestore.collection("products").document(docId)
-
-        docRef.set(productWithStore, SetOptions.merge())
-            .addOnSuccessListener { Log.d("FIREBASE", "Produto ${product.description} sincronizado em $storeId") }
-            .addOnFailureListener { e -> Log.e("FIREBASE", "Erro ao subir produto", e) }
+    suspend fun getFiliais(): List<FilialResponse> {
+        val token = com.openinventory.app.core.config.TokenManager.getBearerToken()
+        val response = apiService.getFiliais()
+        return if (response.isSuccessful) response.body() ?: emptyList() else emptyList()
     }
-
-    // --- LEITURA REATIVA ---
-    // Agora ele só traz o que for da loja que você quer ver
-    fun getProductsByStore(storeId: String): Flow<List<ProductEntity>> {
-        return localProductDataSource.getProductsByStore(storeId)
-    }
-    fun getAllProducts(): Flow<List<ProductEntity>> {
-        return localProductDataSource.getAllProducts()
-    }
-
 }

@@ -1,18 +1,15 @@
 package com.openinventory.app.ui.comanda
-import com.openinventory.app.data.repository.ProductRepository
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.openinventory.app.data.repository.OrderRepository
-import com.google.firebase.firestore.FirebaseFirestore
-class OrderViewModelFactory(
-    private val orderRepository: OrderRepository,
-    private val productRepository: ProductRepository,
-    private val db: FirebaseFirestore
-) : ViewModelProvider.Factory {
-    @Suppress("UNCHECKED_CAST")
+import com.openinventory.app.data.repository.ComandaRepository
+
+// No seu OrderViewModelFactory (ou onde você cria o ViewModel)
+class OrderViewModelFactory(private val repository: ComandaRepository) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(OrderViewModel::class.java)) {
-            return OrderViewModel(orderRepository, productRepository, db) as T
+        if (modelClass.isAssignableFrom(ComandaViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return ComandaViewModel(repository) as T // DEVE PASSAR O REPOSITORY
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

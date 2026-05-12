@@ -3,6 +3,7 @@ package com.openinventory.app.ui.menu
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -15,224 +16,204 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.openinventory.app.R
-import com.openinventory.app.core.config.CompanyConstants
-import androidx.compose.foundation.clickable
-import com.openinventory.app.ui.import.ImportSheet
-import com.openinventory.app.ui.import.ImportViewModel
 
-// --- COMPONENTE DE CARD PREMIUM (ModernMenuCard) ---
-@OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
 fun MainMenu(
-    onNavigateToScan: () -> Unit,
+    // Apenas o que realmente existe na MainActivity
+    onNavigateToDashboard: () -> Unit,
+    onNavigateToComandas: () -> Unit,
     onNavigateToStock: () -> Unit,
-    onNavigateToSales: () -> Unit,
-    onNavigateToKits: () -> Unit,
-    importViewModel: ImportViewModel,
-    onNavigateToHistory: () -> Unit,
-    currentStore: String, // Novo
-    onStoreChange: (String) -> Unit // Novo
+    onNavigateToPdv: () -> Unit,
+    onNavigateToHEvent: () -> Unit,
+    currentStore: String,
+    onStoreChange: (String) -> Unit,
+    menuViewModel: MainMenuViewModel = viewModel()
 ) {
     var showImportSheet by remember { mutableStateOf(false) }
-    var showStoreMenu by remember { mutableStateOf(false) }
-    val BackgroundColor = Color(0xFFF2F4F7)
-    val PrimaryPurple = colorResource(R.color.orange_back)
+    var expandedStores by remember { mutableStateOf(false) }
 
-    Scaffold(
-        containerColor = BackgroundColor,
-        topBar = {
-            Box(modifier = Modifier.fillMaxWidth().height(80.dp)) {
-                Image(
-                    painter = painterResource(id = R.drawable.fundo),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-                Box(
-                    modifier = Modifier.fillMaxSize().background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                colorResource(R.color.orange_back).copy(alpha = 0.9f),
-                                colorResource(R.color.yellow_back).copy(alpha = 0.7f)
-                            )
+    // Observa a lista de filiais da API
+    val filiais by menuViewModel.filiais.collectAsState()
+
+    // Encontra o nome da filial selecionada na lista que veio da API
+    val selectedStoreName = filiais.find { it.id.toString() == currentStore }?.nome ?: "SELECIONAR FILIAL"
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // --- FUNDO PREMIUM ---
+        Image(
+            painter = painterResource(id = R.drawable.fundo),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            colorResource(id = R.color.orange_back).copy(alpha = 0.8f),
+                            Color.Black.copy(alpha = 0.9f)
                         )
                     )
                 )
-                Row(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // Logo e Título
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = CircleShape,
-                            color = Color.White.copy(alpha = 0.2f),
-                            border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.5f))
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.rayeart),
-                                contentDescription = "Logo",
-                                modifier = Modifier.size(54.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = "RAYEARTH",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Black,
-                                color = Color.White,
-                                letterSpacing = 1.5.sp
-                            )
-                        )
-                    }
+        )
 
-                    // SEÇÃO DA FILIAL SELECIONADA
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        modifier = Modifier.clickable { showStoreMenu = true }
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            // Texto da Filial Atual
-                            Text(
-                                text = if (CompanyConstants.currentStoreId == "BAURU") "BAURU" else "MATRIZ",
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.width(4.dp))
-
-                            Icon(
-                                Icons.Default.Storefront,
-                                contentDescription = "Trocar Loja",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        // Texto pequeno de "Trocar"
-                        Text(
-                            text = "TROCAR",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontSize = 8.sp
-                            )
-                        )
-
-                        DropdownMenu(
-                            expanded = showStoreMenu,
-                            onDismissRequest = { showStoreMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("MATRIZ") },
-                                leadingIcon = { Icon(Icons.Default.LocationOn, null) },
-                                onClick = {
-                                    CompanyConstants.currentStoreId = "MATRIZ"
-                                    println("LOG_TESTE: Agora a loja no arquivo é: ${CompanyConstants.currentStoreId}")
-                                    onStoreChange("MATRIZ")
-                                    showStoreMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("BAURU") },
-                                leadingIcon = { Icon(Icons.Default.LocationOn, null) },
-                                onClick = {
-                                    CompanyConstants.currentStoreId = "BAURU"
-                                    println("LOG_TESTE: Agora a loja no arquivo é: ${CompanyConstants.currentStoreId}")
-                                    onStoreChange("BAURU")
-                                    showStoreMenu = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    ) { padding ->
         LazyColumn(
-            modifier = Modifier.padding(padding).fillMaxSize(),
-            contentPadding = PaddingValues(20.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item { Spacer(modifier = Modifier.height(50.dp)) }
 
+            // --- CABEÇALHO COM SELETOR DE FILIAL DA API ---
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "OLÁ, ADMIN",
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.Black,
+                                color = Color.White,
+                                letterSpacing = 1.sp
+                            )
+                        )
+                        // Botão que abre o menu de filiais
+                        Row(
+                            modifier = Modifier.clickable { expandedStores = true },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.LocationOn, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = selectedStoreName.uppercase(),
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Icon(Icons.Default.ArrowDropDown, null, tint = Color.White)
+                        }
 
-            // Destaque: Comandas (Roxo)
+                        // Menu Suspenso das Filiais
+                        DropdownMenu(
+                            expanded = expandedStores,
+                            onDismissRequest = { expandedStores = false }
+                        ) {
+                            if (filiais.isEmpty()) {
+                                DropdownMenuItem(
+                                    text = { Text("Carregando filiais...") },
+                                    onClick = { }
+                                )
+                            }
+
+                            filiais.forEach { filial ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(filial.nome, fontWeight = FontWeight.Bold)
+                                            Text(filial.cidade, fontSize = 12.sp, color = Color.Gray)
+                                        }
+                                    },
+                                    onClick = {
+                                        onStoreChange(filial.id.toString()) // Salva o ID na memória (MainActivity)
+                                        expandedStores = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier.size(55.dp),
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.2f),
+                        border = BorderStroke(2.dp, Color.White)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.rayeart),
+                            contentDescription = "Logo",
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                }
+            }
+
+            // --- CARDS PRINCIPAIS (Ações rápidas) ---
+            item {
+                Text("OPERAÇÕES", style = MaterialTheme.typography.labelLarge.copy(color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold))
+            }
+
             item {
                 MainModernMenuCard(
-                    title = "Comandas Ativas",
-                    subtitle = "Gestão de mesas e consumo",
-                    icon = Icons.Default.ConfirmationNumber,
-                    containerColor = PrimaryPurple,
-                    contentColor = Color.White,
-                    onClick = onNavigateToSales
+                    title = "Dashboard",
+                    subtitle = "Resumo de vendas e metas",
+                    icon = Icons.Default.Analytics,
+                    containerColor = colorResource(id = R.color.orange_back),
+                    onClick = onNavigateToDashboard
                 )
             }
 
-            // PDV e Métricas lado a lado
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    ModernMenuCard(
+                    MainModernMenuCard(
                         modifier = Modifier.weight(1f),
-                        title = "PDV",
-                        subtitle = "Venda Rápida",
-                        icon = Icons.Default.FlashOn,
-                        onClick = onNavigateToKits
+                        title = "Comandas",
+                        subtitle = "Gerenciar pedidos",
+                        icon = Icons.Default.Assignment,
+                        onClick = onNavigateToComandas
                     )
-                    ModernMenuCard(
+                    MainModernMenuCard(
                         modifier = Modifier.weight(1f),
-                        title = "Métricas",
-                        subtitle = "Dashboard",
-                        icon = Icons.Default.BarChart,
-                        onClick = onNavigateToScan
+                        title = "PDV Rápido",
+                        subtitle = "Venda direta",
+                        icon = Icons.Default.ShoppingCart,
+                        onClick = onNavigateToPdv
                     )
                 }
             }
 
+            // --- GERENCIAMENTO ---
             item {
-                Text("GERENCIAMENTO", style = MaterialTheme.typography.labelLarge.copy(color = Color.Gray, fontWeight = FontWeight.Bold), modifier = Modifier.padding(top = 8.dp))
+                Text("SISTEMA", style = MaterialTheme.typography.labelLarge.copy(color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold), modifier = Modifier.padding(top = 8.dp))
             }
 
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    ModernMenuCard(
+                    MainModernMenuCard(
                         modifier = Modifier.weight(1f),
                         title = "Estoque",
                         subtitle = "Cloud Sync",
-                        icon = Icons.Default.Layers,
+                        icon = Icons.Default.Inventory,
                         onClick = onNavigateToStock
                     )
-                    ModernMenuCard(
-                        modifier = Modifier.weight(1f),
-                        title = "Importar",
-                        subtitle = "Planilha CSV",
-                        icon = Icons.Default.CloudUpload,
-                        onClick = { showImportSheet = true }
-                    )
+
                 }
             }
 
             item {
-                ModernMenuCard(
-                    title = "Relatórios",
-                    subtitle = "Auditoria e histórico",
-                    icon = Icons.Default.Analytics,
-                    onClick = onNavigateToHistory
+                MainModernMenuCard(
+                    title = "Histórico de Vendas",
+                    subtitle = "Auditoria completa",
+                    icon = Icons.Default.History,
+                    onClick = onNavigateToHEvent
                 )
             }
+
+            item { Spacer(modifier = Modifier.height(32.dp)) }
         }
     }
 
-    if (showImportSheet) {
-        ImportSheet(viewModel = importViewModel, onDismiss = { showImportSheet = false })
-    }
+
 }

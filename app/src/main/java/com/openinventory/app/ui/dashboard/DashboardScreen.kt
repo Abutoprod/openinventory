@@ -1,165 +1,209 @@
 package com.openinventory.app.ui.dashboard
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
+
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.openinventory.app.R
-// Import importante para as legendas automáticas (FlowRow)
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.ui.viewinterop.AndroidView
+import com.github.mikephil.charting.charts.PieChart
+import com.github.mikephil.charting.components.Legend
+import com.github.mikephil.charting.data.PieData
+import com.github.mikephil.charting.data.PieDataSet
+import androidx.compose.foundation.clickable
+import android.app.DatePickerDialog
+import androidx.compose.ui.platform.LocalContext
+import java.util.Calendar
+import com.github.mikephil.charting.utils.ColorTemplate
+import java.text.NumberFormat
+import java.util.Locale
 
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun DashboardScreen(
-    viewModel: DashboardViewModel = viewModel(),
-    onBack: () -> Unit
-) {
-    val uiState by viewModel.uiState.collectAsState()
-    val BackgroundColor = Color(0xFFF2F4F7)
+fun DashboardScreen(viewModel: DashboardViewModel, filialId: Long) {
+    val state by viewModel.uiState.collectAsState()
 
-    Scaffold(
-        containerColor = BackgroundColor,
-        topBar = {
-            // TopBar com o degradê Laranja/Amarelo que você escolheu
-            Box(modifier = Modifier.fillMaxWidth().height(80.dp)) {
-                Image(
-                    painter = painterResource(id = R.drawable.fundo),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-                Box(
-                    modifier = Modifier.fillMaxSize().background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                colorResource(R.color.orange_back).copy(alpha = 0.9f),
-                                colorResource(R.color.yellow_back).copy(alpha = 0.7f)
-                            )
-                        )
-                    )
-                )
-                Row(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.2f),
-                        border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.5f))
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.rayeart),
-                            contentDescription = "Logo",
-                            modifier = Modifier.size(54.dp).padding(0.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(
-                        text = "RAYEARTH GAMES",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Black,
-                            color = Color.White,
-                            letterSpacing = 1.5.sp
-                        )
-                    )
-                }
-            }
-        }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(paddingValues)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            // 1. Cards Principais de Faturamento
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    StatCard(
-                        title = "FATURAMENTO",
-                        value = "R$ ${String.format("%.2f", uiState.totalRevenue)}",
-                        icon = Icons.Default.Payments,
-                        color = colorResource(R.color.basic_purple),
-                        modifier = Modifier.weight(1f)
-                    )
-                    StatCard(
-                        title = "LUCRO",
-                        value = "R$ ${String.format("%.2f", uiState.totalProfit)}",
-                        icon = Icons.Default.TrendingUp,
-                        color = Color(0xFF4CAF50),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+    // LaunchedEffect para carregar os dados iniciais
+    LaunchedEffect(Unit) {
+        viewModel.carregarDados(filialId)
+    }
+
+    // O Surface resolve o problema do fundo acompanhar o modo do celular (Dark/Light)
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
+            Text(
+                "Dashboard de Vendas",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            // Chama o componente novo
+            FiltroPeriodo(onFiltrar = { inicio, fim ->
+                viewModel.carregarDados(filialId, inicio, fim)
+            })
+
+            Spacer(Modifier.height(16.dp))
+
+            // Linha com Cards de Valores
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ResumoCard("Vendas", state.totalRecebido, Color(0xFF4CAF50), Modifier.weight(1f))
+                ResumoCard("Custo", state.totalCusto, Color(0xFFF44336), Modifier.weight(1f))
             }
 
-            // 2. Gráfico Donut (Mais moderno que Pizza)
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(
-                            text = "DISTRIBUIÇÃO POR PRODUTO",
-                            style = MaterialTheme.typography.labelLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Gray
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(24.dp))
+            Spacer(Modifier.height(8.dp))
+            ResumoCard("Lucro Estimado", state.lucro, Color(0xFF2196F3), Modifier.fillMaxWidth())
 
-                        if (uiState.topProducts.isNotEmpty()) {
-                            DashboardDonutChart(products = uiState.topProducts)
-                        } else {
-                            Box(Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
-                                Text("Aguardando vendas...", color = Color.LightGray)
-                            }
+            Spacer(Modifier.height(32.dp))
+            Text(
+                "Produtos Mais Vendidos",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+            // Gráfico de Pizza
+            if (state.itensPizza.isNotEmpty()) {
+                AndroidView(
+                    factory = { context ->
+                        PieChart(context).apply {
+                            description.isEnabled = false
+                            legend.verticalAlignment = Legend.LegendVerticalAlignment.BOTTOM
+                            legend.textColor = android.graphics.Color.GRAY // Ajuste para ler no dark
+                            setHoleColor(android.graphics.Color.TRANSPARENT)
+                            setEntryLabelColor(android.graphics.Color.BLACK)
+                            animateY(1000)
                         }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(350.dp),
+                    update = { chart ->
+                        val dataSet = PieDataSet(state.itensPizza, "").apply {
+                            colors = ColorTemplate.MATERIAL_COLORS.toList()
+                            valueTextSize = 12f
+                        }
+                        chart.data = PieData(dataSet)
+                        chart.invalidate()
                     }
-                }
-            }
-
-            // 3. Ranking com PerformanceItem Refatorado
-            item {
-                Text(
-                    text = "TOP PRODUTOS",
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Gray
-                    )
                 )
-            }
-
-            items(uiState.topProducts) { product ->
-                PerformanceItem(product)
+            } else if (state.isLoading) {
+                CircularProgressIndicator(modifier = Modifier.padding(top = 20.dp))
+            } else {
+                Text("Nenhuma venda no período", modifier = Modifier.padding(top = 20.dp))
             }
         }
     }
+}
+
+
+@Composable
+fun FiltroPeriodo(onFiltrar: (String, String) -> Unit) {
+    val context = LocalContext.current
+    val calendar = Calendar.getInstance()
+
+    // Datas para exibição (Brasil: DD/MM/AAAA)
+    var dataVisualInicio by remember { mutableStateOf("") }
+    var dataVisualFim by remember { mutableStateOf("") }
+
+    // Datas para lógica/API (ISO: AAAA-MM-DD)
+    var dataIsoInicio by remember { mutableStateOf("") }
+    var dataIsoFim by remember { mutableStateOf("") }
+
+    // Função para abrir o calendário
+    fun abrirCalendario(onDataSelecionada: (String, String) -> Unit) {
+        DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                val dia = dayOfMonth.toString().padStart(2, '0')
+                val mes = (month + 1).toString().padStart(2, '0')
+                val visual = "$dia/$mes/$year"
+                val iso = "$year-$mes-$dia"
+                onDataSelecionada(visual, iso)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Filtrar Período", style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(8.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Campo Início
+                OutlinedTextField(
+                    value = dataVisualInicio,
+                    onValueChange = {},
+                    label = { Text("Início") },
+                    modifier = Modifier.weight(1f).clickable {
+                        abrirCalendario { vis, iso -> dataVisualInicio = vis; dataIsoInicio = iso }
+                    },
+                    enabled = false, // Desabilita digitação, força o clique
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                        disabledBorderColor = MaterialTheme.colorScheme.outline,
+                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+
+                // Campo Fim
+                OutlinedTextField(
+                    value = dataVisualFim,
+                    onValueChange = {},
+                    label = { Text("Fim") },
+                    modifier = Modifier.weight(1f).clickable {
+                        abrirCalendario { vis, iso -> dataVisualFim = vis; dataIsoFim = iso }
+                    },
+                    enabled = false,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                        disabledBorderColor = MaterialTheme.colorScheme.outline,
+                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+            }
+
+            Button(
+                onClick = { onFiltrar(dataIsoInicio, dataIsoFim) },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                enabled = dataIsoInicio.isNotEmpty() && dataIsoFim.isNotEmpty()
+            ) {
+                Text("Aplicar Filtro")
+            }
+        }
+    }
+}
+
+@Composable
+fun ResumoCard(titulo: String, valor: Double, cor: Color, modifier: Modifier) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = cor.copy(alpha = 0.1f))
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(titulo, style = MaterialTheme.typography.labelMedium, color = cor)
+            // USANDO A FUNÇÃO DE MOEDA PARA FORMATAR R$ 1.000,00
+            Text(
+                text = formatarMoeda(valor),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+fun formatarMoeda(valor: Double): String {
+    val formatador = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
+    return formatador.format(valor)
 }

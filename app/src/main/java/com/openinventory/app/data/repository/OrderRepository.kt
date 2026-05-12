@@ -1,10 +1,8 @@
 package com.openinventory.app.data.repository
-import com.openinventory.app.data.database.dao.OrderDao
-import com.openinventory.app.data.database.entity.OrderEntity
-import com.openinventory.app.data.database.entity.OrderItemEntity
+import com.openinventory.app.service.RayearthApiService
 import kotlinx.coroutines.flow.Flow
 
-class OrderRepository(private val orderDao: OrderDao) {
+class OrderRepository() {/*
 
     // Retorna todas as comandas (O nosso SELECT * ORDER BY date DESC)
     fun getAllOrders(): Flow<List<OrderEntity>> {
@@ -30,5 +28,5 @@ class OrderRepository(private val orderDao: OrderDao) {
     // Deleta uma comanda e seus itens (Cascateamento manual se necessário)
     suspend fun deleteOrder(order: OrderEntity) {
         orderDao.deleteOrder(order)
-    }
+    }*/
 }
