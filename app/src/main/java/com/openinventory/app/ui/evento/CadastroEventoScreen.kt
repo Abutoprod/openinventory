@@ -40,7 +40,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.foundation.BorderStroke
-@OptIn(ExperimentalMaterial3Api::class)
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun CadastroEventoScreen(viewModel: EventoViewModel, filialId: Long, onBack: () -> Unit) {
     // ESTADOS DO FORMULÁRIO (Mantidos conforme solicitado)
@@ -67,10 +70,30 @@ fun CadastroEventoScreen(viewModel: EventoViewModel, filialId: Long, onBack: () 
 
     val tituloFinal = if (isSemanal && jogoSelecionado != null) "Semanal ${jogoSelecionado!!.nome}" else tituloManual
     val imagemFinal = if (isSemanal && jogoSelecionado != null) "semanal_${jogoSelecionado!!.nome.lowercase()}.jpg" else imagemManual
-
+    var eventoParaExcluir by remember { mutableStateOf<EventoDTO?>(null) }
     LaunchedEffect(Unit) {
         viewModel.carregarJogos()
         viewModel.carregarEventos()
+    }
+    if (eventoParaExcluir != null) {
+        AlertDialog(
+            onDismissRequest = { eventoParaExcluir = null },
+            title = { Text("Excluir Evento") },
+            text = { Text("Tem certeza que deseja apagar o evento ${eventoParaExcluir?.titulo}?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.excluirEvento(eventoParaExcluir!!.id)
+                    eventoParaExcluir = null
+                }) {
+                    Text("EXCLUIR", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { eventoParaExcluir = null }) {
+                    Text("CANCELAR")
+                }
+            }
+        )
     }
 
     // Estilo padrão para os campos de texto "Glass"
@@ -115,7 +138,7 @@ fun CadastroEventoScreen(viewModel: EventoViewModel, filialId: Long, onBack: () 
                 // CARD DO FORMULÁRIO (GLASS EFFECT)
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.15f)),
+                    colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.5f)),
                     shape = RoundedCornerShape(24.dp),
                     border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
                 ) {
@@ -300,11 +323,23 @@ fun CadastroEventoScreen(viewModel: EventoViewModel, filialId: Long, onBack: () 
             }
 
             items(viewModel.listaEventos) { evento ->
-                Box(modifier = Modifier.clickable {
-                    eventoSelecionado = evento
-                    viewModel.carregarParticipantes(evento.id) // Dispara a API
-                    showParticipantesSheet = true // Abre a tela
-                }) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // Usamos combinedClickable para ter clique simples e longo
+                        .combinedClickable(
+                            onClick = {
+                                eventoSelecionado = evento
+                                viewModel.carregarParticipantes(evento.id)
+                                showParticipantesSheet = true
+                            },
+                            onLongClick = {
+                                // Quando segurar, preparamos o evento para ser excluído
+                                // Isso vai disparar o AlertDialog que você já tem no topo da tela
+                                eventoParaExcluir = evento
+                            }
+                        )
+                ) {
                     EventoCard(evento)
                 }
             }

@@ -44,4 +44,60 @@ class LoginViewModel : ViewModel() {
             }
         }
     }
+
+    // No LoginViewModel.kt
+
+    fun solicitarCodigoSenha(email: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = RetrofitClient.instance.solicitarCodigoSenha(mapOf("email" to email))
+                if (response.isSuccessful) {
+                    onSuccess() // Agora vai chegar aqui!
+                } else {
+                    onError("Erro no servidor")
+                }
+            } catch (e: Exception) {
+                // O erro MalformedJsonException parará de cair aqui se usar Response<Unit>
+                onError("Erro de conexão")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun redefinirSenha(
+        context: android.content.Context, // Precisamos do context para vibrar
+        token: String,
+        novaSenha: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = RetrofitClient.instance.redefinirSenha(mapOf("token" to token, "novaSenha" to novaSenha))
+                if (response.isSuccessful) {
+                    onSuccess()
+                } else {
+                    vibrarErro(context)
+                    onError("Código inválido!")
+                }
+            } catch (e: Exception) {
+                vibrarErro(context)
+                onError("Erro de conexão")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    private fun vibrarErro(context: android.content.Context) {
+        val vibrator = context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            vibrator.vibrate(android.os.VibrationEffect.createOneShot(500, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            vibrator.vibrate(500)
+        }
+    }
 }

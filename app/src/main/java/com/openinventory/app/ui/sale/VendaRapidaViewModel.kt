@@ -29,15 +29,18 @@ class VendaRapidaViewModel(private val repository: ComandaRepository) : ViewMode
             _isLoading.value = false
         }
     }
-    fun adicionarAoCarrinho(produto: ProductResponse) {
+    // Altere a função adicionarAoCarrinho para isso:
+    fun adicionarAoCarrinho(produto: ProductResponse, quantidadeDesejada: Int = 1) {
         val listaAtual = _carrinho.value.toMutableList()
         val index = listaAtual.indexOfFirst { it.produto.id == produto.id }
 
         if (index != -1) {
-            val itemAntigo = listaAtual[index]
-            listaAtual[index] = itemAntigo.copy(quantidade = itemAntigo.quantidade + 1)
+            val item = listaAtual[index]
+            // Em vez de +1, somamos a quantidade vinda do diálogo
+            listaAtual[index] = item.copy(quantidade = item.quantidade + quantidadeDesejada)
         } else {
-            listaAtual.add(ItemCarrinho(produto, 1))
+            // Se o item não existe, adicionamos com a quantidade desejada
+            listaAtual.add(ItemCarrinho(produto, quantidadeDesejada))
         }
         _carrinho.value = listaAtual
     }

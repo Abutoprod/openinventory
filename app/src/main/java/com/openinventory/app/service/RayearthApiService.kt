@@ -170,6 +170,21 @@ data class ParticipanteDTO(
     val telefone: String? = null
 )
 
+data class RankingDTO(
+    val usuarioId: Long,
+    val nome: String,
+    @SerializedName("totalPontos") val pontos: Int
+)
+
+data class LancamentoDTO(
+    val usuarioId: Long,
+    val jogoId: Long,
+    val filialId: Long,
+    val pontos: Int,
+
+    val descricao: String
+)
+
 // --- A INTERFACE DA API ---
 
 interface RayearthApiService {
@@ -291,4 +306,34 @@ interface RayearthApiService {
         @Part("nome") nome: RequestBody? = null, // Adicionamos o nome aqui
         @Header("ngrok-skip-browser-warning") skip: String = "true"
     ): Response<String>
+
+
+    @GET("/api/pontos/ranking")
+    suspend fun consultarRanking(
+        @Header("Authorization") token: String,
+        @Query("jogoId") jogoId: Long,
+        @Query("filialId") filialId: Long,
+        @Query("mes") mes: Int? = null, // Novo
+        @Query("ano") ano: Int? = null, // Novo
+        @Header("ngrok-skip-browser-warning") skip: String = "true"
+    ): List<RankingDTO>
+
+    @POST("/api/pontos")
+    suspend fun lancarPontos(
+        @Header("Authorization") token: String, // Adicionado
+        @Body dados: LancamentoDTO,
+        @Header("ngrok-skip-browser-warning") skip: String = "true"
+    ): Response<okhttp3.ResponseBody>
+
+    @DELETE("/api/eventos/{id}")
+    suspend fun excluirEvento(
+        @Header("Authorization") token: String,
+        @Path("id") id: Long
+    ): Response<Void>
+
+    @POST("/api/usuarios/esqueci-senha")
+    suspend fun solicitarCodigoSenha(@Body payload: Map<String, String>): Response<Unit>
+
+    @POST("/api/usuarios/redefinir-senha")
+    suspend fun redefinirSenha(@Body payload: Map<String, String>): Response<Unit>
 }

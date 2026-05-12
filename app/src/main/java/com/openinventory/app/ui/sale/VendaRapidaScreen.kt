@@ -80,8 +80,9 @@ fun VendaRapidaScreen(
         AdicionarProdutoDialog(
             produtosDisponiveis = produtosLoja,
             onDismiss = { showAddProdutoDialog = false },
-            onConfirm = { produto, _ ->
-                viewModel.adicionarAoCarrinho(produto)
+            onConfirm = { produto, quantidadeSelecionada -> // Aqui pegamos a quantia do Dialog
+                // Passamos a quantidade para o ViewModel
+                viewModel.adicionarAoCarrinho(produto, quantidadeSelecionada)
                 showAddProdutoDialog = false
             }
         )

@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import com.openinventory.app.R
 import androidx.compose.foundation.shape.CircleShape
 
@@ -29,6 +30,12 @@ fun LoginScreen(
     var senha by remember { mutableStateOf("") }
     val loginError by viewModel.loginError.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    var showEsqueciSenhaDialog by remember { mutableStateOf(false) }
+    var showRedefinirSenhaDialog by remember { mutableStateOf(false) }
+    var emailRecuperacao by remember { mutableStateOf("") }
+    var codigoRecuperacao by remember { mutableStateOf("") }
+    var novaSenhaRecuperacao by remember { mutableStateOf("") }
+
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Fundo com Degradê igual ao Menu
@@ -123,6 +130,12 @@ fun LoginScreen(
                     unfocusedContainerColor = Color.White.copy(alpha = 0.05f)
                 )
             )
+            TextButton(
+                onClick = { showEsqueciSenhaDialog = true },
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text("Esqueci minha senha", color = Color.White.copy(alpha = 0.8f))
+            }
 
             // Mensagem de Erro mais visível
             if (loginError != null) {
@@ -139,6 +152,85 @@ fun LoginScreen(
                         fontWeight = FontWeight.Bold
                     )
                 }
+            }
+
+            // 1. Diálogo para pedir o E-mail
+            if (showEsqueciSenhaDialog) {
+                AlertDialog(
+                    onDismissRequest = { showEsqueciSenhaDialog = false },
+                    title = { Text("Recuperar Senha") },
+                    text = {
+                        Column {
+                            Text("Digite seu e-mail para receber o código de 6 dígitos.")
+                            OutlinedTextField(
+                                value = emailRecuperacao,
+                                onValueChange = { emailRecuperacao = it },
+                                label = { Text("E-mail") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            viewModel.solicitarCodigoSenha(emailRecuperacao,
+                                onSuccess = {
+                                    showEsqueciSenhaDialog = false
+                                    showRedefinirSenhaDialog = true // Pula para o próximo passo
+                                },
+                                onError = { /* Mostrar erro se quiser */ }
+                            )
+                        }) { Text("ENVIAR CÓDIGO") }
+                    }
+                )
+            }
+            val context = LocalContext.current
+
+// 2. Diálogo para digitar o Código e a Nova Senha
+            if (showRedefinirSenhaDialog) {
+                AlertDialog(
+                    onDismissRequest = { showRedefinirSenhaDialog = false },
+                    title = { Text("Nova Senha") },
+                    text = {
+                        Column {
+                            Text("Digite o código recebido e sua nova senha.")
+                            OutlinedTextField(
+                                value = codigoRecuperacao,
+                                onValueChange = { codigoRecuperacao = it },
+                                label = { Text("Código de 6 dígitos") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            OutlinedTextField(
+                                value = novaSenhaRecuperacao,
+                                onValueChange = { novaSenhaRecuperacao = it },
+                                label = { Text("Nova Senha") },
+                                visualTransformation = PasswordVisualTransformation(),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            viewModel.redefinirSenha(
+                                context = context,
+                                token = codigoRecuperacao,
+                                novaSenha = novaSenhaRecuperacao,
+                                onSuccess = {
+                                    // FECHA TUDO E LIMPA CAMPOS
+                                    showRedefinirSenhaDialog = false
+                                    codigoRecuperacao = ""
+                                    novaSenhaRecuperacao = ""
+                                    // Aqui você pode disparar um Toast de "Sucesso!"
+                                    android.widget.Toast.makeText(context, "Senha alterada!", android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                                onError = { msg ->
+                                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }) {
+                            Text("ALTERAR SENHA")
+                        }
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(40.dp))

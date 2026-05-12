@@ -17,6 +17,9 @@ import com.openinventory.app.ui.viewmodel.ProductViewModel
 import com.openinventory.app.ui.viewmodel.ProductViewModelFactory
 import com.openinventory.app.ui.login.LoginScreen
 import com.openinventory.app.ui.dashboard.DashboardScreen
+import com.openinventory.app.data.repository.PontosRepository
+import com.openinventory.app.ui.ponto.PontosViewModel
+import com.openinventory.app.ui.ponto.RankingScreen
 // Novos Imports para Comandas
 import com.openinventory.app.ui.comanda.ComandaScreen
 import com.openinventory.app.ui.comanda.ComandaViewModel
@@ -55,6 +58,9 @@ class MainActivity : ComponentActivity() {
             val eventoRepository = EventoRepository(apiService)
             val eventoViewModel = EventoViewModel(eventoRepository)
 
+            val pontosRepository = PontosRepository(apiService)
+            val pontosViewModel = PontosViewModel(pontosRepository,eventoRepository)
+
             NavHost(navController = navController, startDestination = "login") {
 
                 composable("login") {
@@ -74,6 +80,7 @@ class MainActivity : ComponentActivity() {
                         onNavigateToStock = { navController.navigate("stock") },
                         onNavigateToHEvent = { navController.navigate("eventos")},
                         onNavigateToPdv = { navController.navigate("venda_rapida") },
+                        onNavigateToScore = { navController.navigate("pontos") },
                         currentStore = currentStore,
                         onStoreChange = { newStore ->
                             currentStore = newStore
@@ -98,6 +105,20 @@ class MainActivity : ComponentActivity() {
                         onBack = { navController.popBackStack() }
                     )
                 }
+                composable("pontos") {
+                    val filialId = currentStore.toLongOrNull() ?: 0L
+
+                    // ADICIONE ESTA LINHA: Sem ela, o ViewModel nunca busca jogos ou clientes
+                    LaunchedEffect(filialId) {
+                        pontosViewModel.inicializar(filialId)
+                    }
+
+                    RankingScreen(
+                        viewModel = pontosViewModel,
+                        filialId = filialId
+                    )
+                }
+
                 composable("comandas") {
                     ComandaScreen(
                         viewModel = comandaViewModel,

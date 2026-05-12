@@ -12,35 +12,96 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.openinventory.app.service.ProductResponse
-
+import androidx.compose.foundation.BorderStroke
 @Composable
 fun ProductItemCard(
     product: ProductResponse,
-    modifier: Modifier = Modifier // Verifique se essa linha existe!
+    modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier // E se ela é passada para o Card aqui!
+    ElevatedCard(
+        modifier = modifier
             .fillMaxWidth()
-            .padding(8.dp)
+            .padding(horizontal = 4.dp),
+        shape = RoundedCornerShape(16.dp), // Cantos mais arredondados
+        colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(product.code, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-                Text(product.description, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text("R$ ${String.format("%.2f", product.price)}", color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // LADO ESQUERDO: Informações do Produto
+            Column(modifier = Modifier.weight(1f)) {
+                Surface(
+                    color = Color(0xFFF3F4F6),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = product.code,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF6B7280),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = product.description,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 16.sp,
+                    color = Color(0xFF1F2937),
+                    lineHeight = 20.sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Preço com fundo sutil
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "R$ ${"%.2f".format(product.price)}",
+                        color = Color(0xFF059669), // Verde esmeralda moderno
+                        fontWeight = FontWeight.Black,
+                        fontSize = 18.sp
+                    )
+                }
             }
 
-            // Badge de Quantidade
-            Surface(
-                color = if (product.quantity < 5) Color(0xFFFFEBEE) else Color(0xFFE8F5E9),
-                shape = RoundedCornerShape(8.dp)
+            // LADO DIREITO: Badge de Estoque Grande e Profissional
+            val estoqueBaixo = product.quantity < 10
+            Column(
+                horizontalAlignment = Alignment.End,
+                modifier = Modifier.padding(start = 16.dp)
             ) {
-                Text(
-                    "${product.quantity} un",
-                    Modifier.padding(8.dp),
-                    color = if (product.quantity < 5) Color.Red else Color(0xFF2E7D32),
-                    fontWeight = FontWeight.Black
-                )
+                Surface(
+                    color = if (estoqueBaixo) Color(0xFFFEF2F2) else Color(0xFFECFDF5),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        if (estoqueBaixo) Color(0xFFFCA5A5) else Color(0xFFA7F3D0)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "${product.quantity}",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black,
+                            color = if (estoqueBaixo) Color(0xFFB91C1C) else Color(0xFF065F46)
+                        )
+                        Text(
+                            text = "ESTOQUE",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (estoqueBaixo) Color(0xFFB91C1C) else Color(0xFF065F46)
+                        )
+                    }
+                }
             }
         }
     }

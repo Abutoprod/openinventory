@@ -36,6 +36,7 @@ fun MainMenu(
     onNavigateToHEvent: () -> Unit,
     currentStore: String,
     onStoreChange: (String) -> Unit,
+    onNavigateToScore: () -> Unit,
     menuViewModel: MainMenuViewModel = viewModel()
 ) {
     var showImportSheet by remember { mutableStateOf(false) }
@@ -95,7 +96,12 @@ fun MainMenu(
                             modifier = Modifier.clickable { expandedStores = true },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.LocationOn, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                            Icon(
+                                Icons.Default.LocationOn,
+                                null,
+                                tint = Color.White,
+                                modifier = Modifier.size(14.dp)
+                            )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = selectedStoreName.uppercase(),
@@ -123,7 +129,11 @@ fun MainMenu(
                                     text = {
                                         Column {
                                             Text(filial.nome, fontWeight = FontWeight.Bold)
-                                            Text(filial.cidade, fontSize = 12.sp, color = Color.Gray)
+                                            Text(
+                                                filial.cidade,
+                                                fontSize = 12.sp,
+                                                color = Color.Gray
+                                            )
                                         }
                                     },
                                     onClick = {
@@ -152,7 +162,13 @@ fun MainMenu(
 
             // --- CARDS PRINCIPAIS (Ações rápidas) ---
             item {
-                Text("OPERAÇÕES", style = MaterialTheme.typography.labelLarge.copy(color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold))
+                Text(
+                    "OPERAÇÕES",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontWeight = FontWeight.Bold
+                    )
+                )
             }
 
             item {
@@ -186,7 +202,14 @@ fun MainMenu(
 
             // --- GERENCIAMENTO ---
             item {
-                Text("SISTEMA", style = MaterialTheme.typography.labelLarge.copy(color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold), modifier = Modifier.padding(top = 8.dp))
+                Text(
+                    "SISTEMA",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
 
             item {
@@ -204,16 +227,25 @@ fun MainMenu(
 
             item {
                 MainModernMenuCard(
-                    title = "Histórico de Vendas",
-                    subtitle = "Auditoria completa",
+                    title = "Cadastro de Evento",
+                    subtitle = "Semanais / Mensais",
                     icon = Icons.Default.History,
                     onClick = onNavigateToHEvent
                 )
             }
+            item {
+                MainModernMenuCard(
+                    title = "Ranking Mensal",
+                    subtitle = "Auditoria completa",
+                    icon = Icons.Default.EmojiEvents,
+                    onClick = onNavigateToScore
 
+                )
+
+            }
             item { Spacer(modifier = Modifier.height(32.dp)) }
+
         }
+
     }
-
-
 }

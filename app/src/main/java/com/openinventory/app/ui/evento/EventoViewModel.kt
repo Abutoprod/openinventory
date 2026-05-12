@@ -17,7 +17,10 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import com.openinventory.app.service.ParticipanteDTO
 import java.io.File
-
+import android.graphics.Bitmap
+import java.io.FileOutputStream
+import android.graphics.BitmapFactory
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 class EventoViewModel(private val repository: EventoRepository) : ViewModel() {
 
     var jogos = mutableStateListOf<JogoResponseDTO>()
@@ -57,7 +60,20 @@ class EventoViewModel(private val repository: EventoRepository) : ViewModel() {
         }
         return file
     }
-
+    fun excluirEvento(id: Long) {
+        viewModelScope.launch {
+            isLoading.value = true
+            val sucesso = repository.excluirEvento(id)
+            if (sucesso) {
+                // Remove da lista local para a UI atualizar na hora sem precisar recarregar tudo
+                listaEventos.removeAll { it.id == id }
+                Log.d("EVENTO_VM", "Evento $id excluído com sucesso")
+            } else {
+                mensagemErro.value = "Não foi possível excluir o evento."
+            }
+            isLoading.value = false
+        }
+    }
     fun cadastrarEventoComImagem(
         context: Context,
         uri: Uri?,
@@ -68,47 +84,56 @@ class EventoViewModel(private val repository: EventoRepository) : ViewModel() {
         jogoId: Long,
         jogoNome: String,
         isSemanal: Boolean,
-        nomeImagemPredefinido: String,
+        nomeImagemPredefinido: String, // ex: imagem do jogo se não tiver upload
         onSuccess: () -> Unit
     ) {
         viewModelScope.launch {
             isLoading.value = true
 
-            // 1. Gerar o nome que sugerimos ao servidor (limpo)
-            val nomeSugerido = if (isSemanal) "semanal_${jogoNome.lowercase()}" else titulo.lowercase()
-            val nomeLimpo = nomeSugerido.replace(" ", "_").replace(":", "").replace("/", "")
+            // 1. DEFINIMOS O NOME AQUI E AGORA
+            val tituloLimpo = titulo.trim()
+            val nomeBase = if (isSemanal) {
+                "semanal_${jogoNome.trim().lowercase().replace(" ", "_")}"
+            } else {
+                tituloLimpo.lowercase().replace(" ", "_")
+            }.replace(":", "").replace("/", "")
 
-            var nomeImagemParaOBanco = ""
+            // Este é o nome que vamos mandar para o banco, aconteça o que acontecer
+            val nomeFinalComExtensao = "$nomeBase.jpg"
 
-            // 2. Tentar o upload primeiro
+            // 2. TENTAMOS O UPLOAD (Fogo e Esqueça)
             if (uri != null) {
-                val file = FileUtil.getFileFromUri(context, uri)
-                // IMPORTANTE: O repository deve retornar o nome do ficheiro salvo
-                val resultadoUpload = repository.uploadImagem(file, nomeLimpo)
-
-                if (!resultadoUpload.isNullOrBlank()) {
-                    // Se o servidor devolveu "foto.jpg", guardamos isso
-                    nomeImagemParaOBanco = resultadoUpload
-                } else {
-                    Log.e("EVENTO", "Upload falhou, o evento será criado sem imagem")
+                val arquivoParaUpload = comprimirImagem(context, uri)
+                if (arquivoParaUpload != null) {
+                    // Chamamos o upload, mas não travamos o nomeFinal se der erro
+                    try {
+                        // Passamos o nomeBase que queremos que o servidor use
+                        repository.uploadImagem(arquivoParaUpload, nomeBase)
+                        Log.d("EVENTO", "Tentativa de upload enviada: $nomeFinalComExtensao")
+                    } catch (e: Exception) {
+                        Log.e("EVENTO", "Upload falhou, mas seguiremos com o cadastro: ${e.message}")
+                    } finally {
+                        arquivoParaUpload.delete()
+                    }
                 }
             }
 
-            // 3. Criar o evento com o nome da imagem que veio do servidor
+            // 3. CRIAR O EVENTO (Usando o nome que decidimos no passo 1)
             val novoEvento = EventoRequestDTO(
-                titulo = titulo,
+                titulo = tituloLimpo,
                 descricao = descricao,
                 dataHora = dataIso,
                 filialId = filialId,
                 jogoId = jogoId,
-                nomeImagem = nomeImagemPredefinido, // <--- Aqui está o segredo
+                nomeImagem = if (uri != null) nomeFinalComExtensao else nomeImagemPredefinido,
                 linkInscricao = ""
             )
 
+            Log.d("EVENTO_ENVIO", "Cadastrando evento com imagem: ${novoEvento.nomeImagem}")
+
             val sucesso = repository.cadastrarEvento(novoEvento)
-            if (sucesso) {
-                onSuccess()
-            }
+            if (sucesso) onSuccess()
+
             isLoading.value = false
         }
     }
@@ -127,6 +152,27 @@ class EventoViewModel(private val repository: EventoRepository) : ViewModel() {
             } finally {
                 carregandoParticipantes.value = false
             }
+        }
+    }
+
+    private fun comprimirImagem(context: Context, uri: Uri): File? {
+        return try {
+            val inputStream = context.contentResolver.openInputStream(uri)
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+
+            // Cria um arquivo temporário para a imagem comprimida
+            val compressedFile = File(context.cacheDir, "temp_event_image.jpg")
+            val outputStream = FileOutputStream(compressedFile)
+
+            // 70 é o nível de qualidade (0-100). Reduz de MBs para KBs.
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream)
+
+            outputStream.flush()
+            outputStream.close()
+            compressedFile
+        } catch (e: Exception) {
+            Log.e("EVENTO_VM", "Erro ao comprimir: ${e.message}")
+            null
         }
     }
 

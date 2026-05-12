@@ -39,6 +39,7 @@ fun InventoryScreen(viewModel: ProductViewModel, currentStoreId: String) {
     }
 
     Scaffold(
+        containerColor = Color(0xFFF5F7FA),
         topBar = {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -68,8 +69,8 @@ fun InventoryScreen(viewModel: ProductViewModel, currentStoreId: String) {
                     productToEdit = null // Garante que é um novo cadastro
                     showSheet = true
                 },
-                containerColor = colorResource(id = R.color.orange_back),
-                contentColor = Color.White
+                containerColor = Color(0xFFFFC107),
+                contentColor = Color.Black
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Adicionar")
             }
@@ -82,9 +83,8 @@ fun InventoryScreen(viewModel: ProductViewModel, currentStoreId: String) {
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp) // Mais espaço entre os itens
                 ) {
                     items(products) { product ->
                         // USAMOS O MODIFIER AQUI PARA O CLIQUE LONGO
